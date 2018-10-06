@@ -24,11 +24,7 @@ function declaration part
 
 
 '''
-This bit of code gives an example of how you might extract trigram counts
-from a file, line by line. If you plan to use or modify this code,
-please ensure you understand what it is actually doing, especially at the
-beginning and end of each line. Depending on how you write the rest of
-your program, you may need to modify this code.
+Read in training file and store trigram count into dictionary 'tri_counts' 
 @:param param1: input file name
 @:return: void
 '''
@@ -36,6 +32,7 @@ def read_and_store(infile):
     with open(infile) as f:
         for line in f:
             line = preprocess_line(line)  # implemented already.
+            # TODO: include last 2 characters or not?
             for j in range(len(line) - (3)):
                 trigram = line[j:j + 3]
                 tri_counts[trigram] += 1
@@ -60,7 +57,8 @@ Store probabilities into global dictionary 'global probability'
 def estimate_tri_prob():
     total = sum(tri_counts.values())
     for k in tri_counts:
-        tri_probability[k] = tri_counts[k] /float(total)
+        # TODO: the detail estimation need discussing
+        tri_probability[k] = tri_counts[k] / float(total)
 
 '''
 Write back estimated probabilities to an output file
