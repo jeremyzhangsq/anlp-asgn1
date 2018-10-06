@@ -76,17 +76,18 @@ Store probabilities into global dictionary 'train_model'
 The calculation formula is lec6, slide 13:
 
 P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
-where alpha is a tuning smoothing parameter, and v is the size of vocabulary
+where alpha is a tunable smoothing parameter, and v is the size of vocabulary
 
 @:param alpha: smoothing parameter alpha
 @:return: void
 '''
-def estimate_tri_prob(alpha):
+def estimate_tri_prob(alpha = 0):
     v = len(vocabulary)
     for k in tri_counts:
         # TODO: the detail estimation need discussing
-        pre = k[:2]
-        train_model[k] = (tri_counts[k] + alpha) / (bi_counts[pre] + alpha * v)
+        pre = bi_counts[k[:2]]
+        tri = tri_counts[k]
+        train_model[k] = (tri + alpha) / (pre + alpha * v)
 
 '''
 Task 3: Write back estimated probabilities to an output file
