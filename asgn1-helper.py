@@ -10,10 +10,29 @@ from collections import defaultdict
 variable declaration part
 ============================================================
 '''
-# dictionary to store counts of all trigrams in input
-# key (string): trigram e.g "and"
-# value (int): counts of the key
+
+'''
+dictionary to store counts of all trigrams in input
+key (string): trigram e.g "and"
+value (int): counts of the key
+'''
 tri_counts = defaultdict(int)
+
+'''
+dictionary to store counts of previous two chars of all trigrams in input
+key (string): previous two chars e.g "an"
+value (int): counts of the key
+'''
+bi_counts = defaultdict(int)
+
+'''
+set to store all third char in trigrams, e.g. 'd' in "and"
+'''
+vocabulary = set()
+
+'''
+dictionary to store the probability of each trigram
+'''
 train_model = defaultdict(float)
 
 '''
@@ -35,7 +54,10 @@ def read_and_store(infile):
             # TODO: include last 2 characters or not?
             for j in range(len(line) - (3)):
                 trigram = line[j:j + 3]
+                pre = line[j:j + 2]
+                vocabulary.add(trigram[2])
                 tri_counts[trigram] += 1
+                bi_counts[pre] += 1
 
 '''
 Task 1: removing unnecessary characters from each line
@@ -51,14 +73,20 @@ def preprocess_line(line):
 '''
 Task 3: Estimate trigram probabilities by trigram count in training set. 
 Store probabilities into global dictionary 'train_model'
-@:param: None
+The calculation formula is lec6, slide 13:
+
+P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
+where alpha is a tuning smoothing parameter, and v is the size of vocabulary
+
+@:param alpha: smoothing parameter alpha
 @:return: void
 '''
-def estimate_tri_prob():
-    total = sum(tri_counts.values())
+def estimate_tri_prob(alpha):
+    v = len(vocabulary)
     for k in tri_counts:
         # TODO: the detail estimation need discussing
-        train_model[k] = tri_counts[k] / float(total)
+        pre = k[:2]
+        train_model[k] = (tri_counts[k] + alpha) / (bi_counts[pre] + alpha * v)
 
 '''
 Task 3: Write back estimated probabilities to an output file
@@ -85,12 +113,14 @@ def read_model(infile):
     return model
 
 '''
-By using a LM, generate a random sequence with length k
-@:param param1: given language model
+Task 4: By using a LM, generate a random sequence with length k
+@:param model: a language model stored in dictionary
 @:param k: the size of output sequence
 @:return: a random string sequence
 '''
-def generate_from_LM()
+def generate_from_LM(model, k):
+
+    pass
 
 '''
 Some example code that prints out the counts. For small input files
