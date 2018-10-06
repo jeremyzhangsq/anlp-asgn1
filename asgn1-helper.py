@@ -13,25 +13,14 @@ variable declaration part
 # dictionary to store counts of all trigrams in input
 # key (string): trigram e.g "and"
 # value (int): counts of the key
-tri_counts=defaultdict(int)
-
+tri_counts = defaultdict(int)
+tri_probability = defaultdict(float)
 
 '''
 ============================================================
 function declaration part
 ============================================================
 '''
-
-'''
-Task 1: removing unnecessary characters from each line
-@:param param1: a line of string from input file
-@:return: a new line only with English alphabet, space, digits and dot character.
-'''
-def preprocess_line(line):
-    rule = re.compile("[^\s.A-Za-z0-9]")
-    line = rule.sub('', line)  # newline with only digit, alphabet, space and dot.
-    line = re.sub("[1-9]", "0", line)  # replace 1-9 to 0
-    return line.lower()
 
 
 '''
@@ -46,10 +35,32 @@ your program, you may need to modify this code.
 def read_and_store(infile):
     with open(infile) as f:
         for line in f:
-            line = preprocess_line(line)  # doesn't do anything yet.
+            line = preprocess_line(line)  # implemented already.
             for j in range(len(line) - (3)):
                 trigram = line[j:j + 3]
                 tri_counts[trigram] += 1
+
+'''
+Task 1: removing unnecessary characters from each line
+@:param param1: a line of string from input file
+@:return: a new line only with English alphabet, space, digits and dot character.
+'''
+def preprocess_line(line):
+    rule = re.compile("[^\s.A-Za-z0-9]")
+    line = rule.sub('', line)  # newline with only digit, alphabet, space and dot.
+    line = re.sub("[1-9]", "0", line)  # replace 1-9 to 0
+    return line.lower()
+
+'''
+Estimate trigram probabilities by trigram count in training set. 
+Store probabilities into global dictionary 'global probability'
+@:param: None
+@:return: void
+'''
+def estimate_tri_prob():
+    total = sum(tri_counts.values())
+    for k in tri_counts:
+        tri_probability[k] = tri_counts[k] /float(total)
 
 
 '''
@@ -68,6 +79,10 @@ def show(infile):
         print(tri_count[0], ": ", str(tri_count[1]))
 
 
+
+
+
+
 '''
 ============================================================
 program running part
@@ -83,7 +98,9 @@ if __name__ == '__main__':
 
     infile = sys.argv[1]  # get input argument: the training file
     read_and_store(infile)
-    show(infile)
+    estimate_tri_prob()
+    # print(tri_probability)
+    # show(infile)
 
 
 
