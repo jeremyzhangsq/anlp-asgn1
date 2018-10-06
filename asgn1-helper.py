@@ -62,6 +62,16 @@ def estimate_tri_prob():
     for k in tri_counts:
         tri_probability[k] = tri_counts[k] /float(total)
 
+'''
+Write back estimated probabilities to an output file
+@:param: filename
+@:return: write succeed or not
+'''
+def write_back_prob(outfile):
+    with open(outfile, 'w') as f:
+        for k in tri_probability:
+            f.write("{}\t{:.3e}\n".format(k,tri_probability[k]))
+
 
 '''
 Some example code that prints out the counts. For small input files
@@ -99,6 +109,7 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
     read_and_store(infile)
     estimate_tri_prob()
+    write_back_prob("outfile.txt")
     # print(tri_probability)
     # show(infile)
 
