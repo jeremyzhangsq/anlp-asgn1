@@ -14,7 +14,7 @@ variable declaration part
 # key (string): trigram e.g "and"
 # value (int): counts of the key
 tri_counts = defaultdict(int)
-tri_probability = defaultdict(float)
+train_model = defaultdict(float)
 
 '''
 ============================================================
@@ -25,7 +25,7 @@ function declaration part
 
 '''
 Read in training file and store trigram count into dictionary 'tri_counts' 
-@:param param1: input file name
+@:param infile: input file name
 @:return: void
 '''
 def read_and_store(infile):
@@ -39,7 +39,7 @@ def read_and_store(infile):
 
 '''
 Task 1: removing unnecessary characters from each line
-@:param param1: a line of string from input file
+@:param line: a line of string from input file
 @:return: a new line only with English alphabet, space, digits and dot character.
 '''
 def preprocess_line(line):
@@ -49,8 +49,8 @@ def preprocess_line(line):
     return line.lower()
 
 '''
-Estimate trigram probabilities by trigram count in training set. 
-Store probabilities into global dictionary 'global probability'
+Task 3: Estimate trigram probabilities by trigram count in training set. 
+Store probabilities into global dictionary 'train_model'
 @:param: None
 @:return: void
 '''
@@ -58,18 +58,39 @@ def estimate_tri_prob():
     total = sum(tri_counts.values())
     for k in tri_counts:
         # TODO: the detail estimation need discussing
-        tri_probability[k] = tri_counts[k] / float(total)
+        train_model[k] = tri_counts[k] / float(total)
 
 '''
-Write back estimated probabilities to an output file
-@:param: filename
+Task 3: Write back estimated probabilities to an output file
+@:param outfile: filename
 @:return: write succeed or not
 '''
 def write_back_prob(outfile):
     with open(outfile, 'w') as f:
-        for k in tri_probability:
-            f.write("{}\t{:.3e}\n".format(k,tri_probability[k]))
+        for k in train_model:
+            f.write("{}\t{:.3e}\n".format(k,train_model[k]))
 
+'''
+Read model from file and store into a dictionary
+@:param infile: model name
+@:return: a default dictionary containing the probability of trigrams 
+'''
+def read_model(infile):
+    model = defaultdict(float)
+    with open(infile) as f:
+        for line in f:
+            trigram, prob = line.split('\t')
+            prob = float(prob.split('\n')[0])
+            model[trigram] = prob
+    return model
+
+'''
+By using a LM, generate a random sequence with length k
+@:param param1: given language model
+@:param k: the size of output sequence
+@:return: a random string sequence
+'''
+def generate_from_LM()
 
 '''
 Some example code that prints out the counts. For small input files
@@ -108,7 +129,8 @@ if __name__ == '__main__':
     read_and_store(infile)
     estimate_tri_prob()
     write_back_prob("outfile.txt")
-    # print(tri_probability)
+    model = read_model("model-br.en")
+    # print(train_model)
     # show(infile)
 
 
