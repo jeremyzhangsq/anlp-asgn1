@@ -13,30 +13,6 @@ variable declaration part
 '''
 
 '''
-dictionary to store counts of all trigrams in input
-key (string): trigram e.g "and"
-value (int): counts of the key
-'''
-tri_counts = defaultdict(int)
-
-'''
-dictionary to store counts of previous two chars of all trigrams in input
-key (string): previous two chars e.g "an"
-value (int): counts of the key
-'''
-bi_counts = defaultdict(int)
-
-'''
-set to store all third char in trigrams, e.g. 'd' in "and"
-'''
-vocabulary = set()
-
-'''
-dictionary to store the probability of each trigram
-'''
-train_model = defaultdict(float)
-
-'''
 ============================================================
 function declaration part
 ============================================================
@@ -46,9 +22,23 @@ function declaration part
 '''
 Read in training file and store trigram count into dictionary 'tri_counts' 
 @:param infile: input file name
-@:return: void
+@:returns: tri_counts, bi_counts, vocabulary
 '''
 def read_and_store(infile):
+
+    # dictionary to store counts of all trigrams in input
+    # key (string): trigram e.g "and"
+    # value (int): counts of the key
+    tri_counts = defaultdict(int)
+
+    # dictionary to store counts of previous two chars of all trigrams in input
+    # key (string): previous two chars e.g "an"
+    # value (int): counts of the key
+    bi_counts = defaultdict(int)
+
+    # set to store all third char in trigrams, e.g. 'd' in "and"
+    vocabulary = set()
+
     with open(infile) as f:
         for line in f:
             line = preprocess_line(line)  # implemented already.
@@ -60,6 +50,8 @@ def read_and_store(infile):
                 tri_counts[trigram] += 1
                 bi_counts[pre] += 1
 
+    return tri_counts, bi_counts, vocabulary
+
 '''
 Task 1: removing unnecessary characters from each line
 @:param line: a line of string from input file
@@ -69,7 +61,7 @@ def preprocess_line(line):
     rule = re.compile("[^\s.A-Za-z0-9]")
     line = rule.sub('', line)  # newline with only digit, alphabet, space and dot.
     line = re.sub("[1-9]", "0", line)  # replace 1-9 to 0
-    line = "##"+line.lower()[:-1]+"#" # add character'#' to specify start and stop
+    line = "##"+line.lower()[:-1]+"#"  # add character'#' to specify start and stop
     return line
 
 '''
@@ -80,23 +72,29 @@ The calculation formula is lec6, slide 13:
 P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
 where alpha is a tunable smoothing parameter, and v is the size of vocabulary
 
+@:param tri_cnts: a dictionary containing all tri-gram counts
+@:param bi_cnts: a dictionary containing all bi-gram counts
+@:param vocabulary: vocabulary set containing all third chars in training set
 @:param alpha: smoothing parameter alpha
-@:return: void
+@:return: language model
 '''
-def estimate_tri_prob(alpha = 0):
+def estimate_tri_prob(tri_cnts, bi_cnts, vocabulary, alpha = 0):
     v = len(vocabulary)
+    # dictionary to store the probability of each trigram
+    model = defaultdict(float)
     for k in tri_counts:
         # TODO: the detail estimation need discussing
-        pre = bi_counts[k[:2]]
-        tri = tri_counts[k]
-        train_model[k] = (tri + alpha) / (pre + alpha * v)
-
+        pre = bi_cnts[k[:2]]
+        tri = tri_cnts[k]
+        model[k] = (tri + alpha) / (pre + alpha * v)
+    return model
 '''
 Task 3: Write back estimated probabilities to an output file
 @:param outfile: filename
+@:param train_model: language model to be written
 @:return: write succeed or not
 '''
-def write_back_prob(outfile):
+def write_back_prob(outfile, train_model):
     with open(outfile, 'w') as f:
         for k in train_model:
             f.write("{}\t{:.3e}\n".format(k,train_model[k]))
@@ -170,7 +168,7 @@ Given a language model and a sentence, calculate the probablity.
 '''
 def get_sentence_prob(model, line):
     p = 1
-    for j in range(len(line) - (3)):
+    for j in range(len(line) - (2)):
         trigram = line[j:j + 3]
         prob = model[trigram]
         # TODO: what if current trigram is not in training model? We skip unknown word here
@@ -213,14 +211,14 @@ if __name__ == '__main__':
 
     infile = sys.argv[1]  # get input argument: the training file
 
-    read_and_store(infile)
-    estimate_tri_prob()
-    write_back_prob("outfile.txt")
+    tri_counts, bi_counts, vocabulary = read_and_store(infile)
+    training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary)
+    write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
-    seq = generate_from_LM(train_model, 300)
-    print(get_perplexity(train_model,"test"))
-    # print(train_model)
-    # show(infile)
+    seq = generate_from_LM(training_model, 300)
+    print(get_perplexity(training_model, "test"))
+    print(training_model)
+    show(infile)
 
 
 
