@@ -1,7 +1,7 @@
 # Here are some libraries you're likely to use. You might want/need others as well.
 import re
 import sys
-from random import random
+import random
 from math import log
 from collections import defaultdict
 
@@ -115,13 +115,25 @@ def read_model(infile):
 
 '''
 Task 4: By using a LM, generate a random sequence with length k
-@:param model: a language model stored in dictionary
+@:param lmodel: a language model stored in dictionary
 @:param k: the size of output sequence
 @:return: a random string sequence
 '''
-def generate_from_LM(model, k):
+def generate_from_LM(lmodel, k):
 
-    pass
+    if k % 3 != 0:
+        raise Exception("Character size k cannot be divided by 3")
+    else:
+        group = int(k / 3)
+        sequence = ""
+        trigrams = list(lmodel.keys())
+        lens = len(trigrams)
+        for i in range(group):
+            idx = random.randint(0, lens)
+            key = trigrams[idx]
+            sequence += key
+        return sequence
+
 
 '''
 Some example code that prints out the counts. For small input files
@@ -159,6 +171,7 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
     read_and_store(infile)
     estimate_tri_prob()
+    seq = generate_from_LM(train_model, 300)
     write_back_prob("outfile.txt")
     model = read_model("model-br.en")
     # print(train_model)
