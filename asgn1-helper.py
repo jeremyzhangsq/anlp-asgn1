@@ -43,7 +43,6 @@ def read_and_store(infile):
 
     # set to store all third char in trigrams, e.g. 'd' in "and"
     vocabulary = set()
-
     with open(infile) as f:
         for line in f:
             line = preprocess_line(line)  # implemented already.
@@ -56,7 +55,13 @@ def read_and_store(infile):
                 tri_counts[trigram] += 1
                 bi_counts[pre] += 1
 
-    return tri_counts, bi_counts, adjacent_map, vocabulary
+    new_map = defaultdict(list)
+    for key in adjacent_map:
+        new_map[key] = list(adjacent_map[key])
+
+    del adjacent_map
+
+    return tri_counts, bi_counts, new_map, vocabulary
 
 '''
 Task 1: removing unnecessary characters from each line
@@ -123,24 +128,20 @@ def read_model(infile):
 Task 4: By using a LM and probability, generate a random sequence with length k
 @:param lmodel: a language model stored in dictionary
 @:param k: the size of output sequence
+@:param adjacent_map: a dictionary to store first two chars and all their possible third char
 @:return: a random string sequence
 '''
-def generate_from_LM(lmodel, k):
+def generate_from_LM(lmodel, adjacent_map, k):
 
     if k % 3 != 0:
         raise Exception("Character size k cannot be divided by 3")
     else:
         group = int(k / 3)
-        sequence = ""
-        # this is a totally random version for sentence generation
-        # TODO: need to discuss how to generate sequence
-        trigrams = list(lmodel.keys())
-        lens = len(trigrams)
-        for i in range(group):
-            # random select trigrams and concat them together
-            idx = random.randint(0, lens-1)
-            key = trigrams[idx]
-            sequence += key
+        idx = random.randint(0, len(adjacent_map["##"])-1)
+        start = adjacent_map["##"][idx]
+        sequence = "##"+start
+        # TODO: use viterbi algorithm to select
+
         return sequence
 
 
@@ -221,7 +222,7 @@ if __name__ == '__main__':
     training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary)
     write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
-    seq = generate_from_LM(training_model, 300)
+    seq = generate_from_LM(training_model,adjacent_map, 300)
     print(get_perplexity(training_model, "test"))
     print(training_model)
     show(infile)
