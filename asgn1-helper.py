@@ -36,6 +36,11 @@ def read_and_store(infile):
     # value (int): counts of the key
     bi_counts = defaultdict(int)
 
+    # dictionary to store relation graph of third char and previous two chars
+    # key (string): previous two chars e.g "an"
+    # value (set): all third char
+    adjacent_map = defaultdict(set)
+
     # set to store all third char in trigrams, e.g. 'd' in "and"
     vocabulary = set()
 
@@ -47,10 +52,11 @@ def read_and_store(infile):
                 trigram = line[j:j + 3]
                 pre = line[j:j + 2]
                 vocabulary.add(trigram[2])
+                adjacent_map[pre].add(trigram[2])
                 tri_counts[trigram] += 1
                 bi_counts[pre] += 1
 
-    return tri_counts, bi_counts, vocabulary
+    return tri_counts, bi_counts, adjacent_map, vocabulary
 
 '''
 Task 1: removing unnecessary characters from each line
@@ -211,7 +217,7 @@ if __name__ == '__main__':
 
     infile = sys.argv[1]  # get input argument: the training file
 
-    tri_counts, bi_counts, vocabulary = read_and_store(infile)
+    tri_counts, bi_counts, adjacent_map, vocabulary = read_and_store(infile)
     training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary)
     write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
