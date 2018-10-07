@@ -157,7 +157,7 @@ def get_perplexity(model, testfile):
             logsum += np.log2(p)
         # get cross entropy
         cross_entropy = -logsum / cnt
-        # get perplexity of whoe test paragraph
+        # get perplexity of whole test paragraph
         pp = np.exp2(cross_entropy)
         return pp
 
