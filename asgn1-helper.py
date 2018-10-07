@@ -52,8 +52,8 @@ def read_and_store(infile):
     with open(infile) as f:
         for line in f:
             line = preprocess_line(line)  # implemented already.
-            # TODO: include last 2 characters or not?
-            for j in range(len(line) - (3)):
+            # include '##<start cahr>' and '<end char>##'
+            for j in range(len(line) - (2)):
                 trigram = line[j:j + 3]
                 pre = line[j:j + 2]
                 vocabulary.add(trigram[2])
@@ -69,7 +69,8 @@ def preprocess_line(line):
     rule = re.compile("[^\s.A-Za-z0-9]")
     line = rule.sub('', line)  # newline with only digit, alphabet, space and dot.
     line = re.sub("[1-9]", "0", line)  # replace 1-9 to 0
-    return line.lower()
+    line = "##"+line.lower()[:-1]+"#" # add character'#' to specify start and stop
+    return line
 
 '''
 Task 3: Estimate trigram probabilities by trigram count in training set. 
