@@ -3,6 +3,7 @@ import re
 import sys
 import random
 from math import log
+import numpy as np
 from collections import defaultdict
 
 '''
@@ -114,7 +115,7 @@ def read_model(infile):
     return model
 
 '''
-Task 4: By using a LM, generate a random sequence with length k
+Task 4: By using a LM and probability, generate a random sequence with length k
 @:param lmodel: a language model stored in dictionary
 @:param k: the size of output sequence
 @:return: a random string sequence
@@ -126,14 +127,55 @@ def generate_from_LM(lmodel, k):
     else:
         group = int(k / 3)
         sequence = ""
+        # this is a totally random version for sentence generation
+        # TODO: need to discuss how to generate sequence
         trigrams = list(lmodel.keys())
         lens = len(trigrams)
         for i in range(group):
-            idx = random.randint(0, lens)
+            # random select trigrams and concat them together
+            idx = random.randint(0, lens-1)
             key = trigrams[idx]
             sequence += key
         return sequence
 
+
+'''
+Task 5: Given a language model and a test paragraph, calculate the perplexity.
+@:param model: a language model stored in dictionary
+@:param testfile: the name of test file
+@:return: the perplexity
+'''
+def get_perplexity(model, testfile):
+    logsum = 0
+    cnt = 0
+    with open(testfile) as f:
+        # calculate the log probability of each sentence and sum them up
+        for line in f:
+            line = preprocess_line(line)
+            cnt += 1
+            p = get_sentence_prob(model, line)
+            logsum += np.log2(p)
+        # get cross entropy
+        cross_entropy = -logsum / cnt
+        # get perplexity of whoe test paragraph
+        pp = np.exp2(cross_entropy)
+        return pp
+
+'''
+Given a language model and a sentence, calculate the probablity.
+@:param model: a language model stored in dictionary
+@:param line: the sentence
+@:return: the probability of this sentence
+'''
+def get_sentence_prob(model, line):
+    p = 1
+    for j in range(len(line) - (3)):
+        trigram = line[j:j + 3]
+        prob = model[trigram]
+        # TODO: what if current trigram is not in training model? We skip unknown word here
+        if prob != 0:
+            p *= prob
+    return p
 
 '''
 Some example code that prints out the counts. For small input files
@@ -169,11 +211,13 @@ if __name__ == '__main__':
         sys.exit(1)
 
     infile = sys.argv[1]  # get input argument: the training file
+
     read_and_store(infile)
     estimate_tri_prob()
-    seq = generate_from_LM(train_model, 300)
     write_back_prob("outfile.txt")
     model = read_model("model-br.en")
+    seq = generate_from_LM(train_model, 300)
+    print(get_perplexity(train_model,"test"))
     # print(train_model)
     # show(infile)
 
