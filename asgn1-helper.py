@@ -46,7 +46,7 @@ def read_and_store(infile):
     with open(infile) as f:
         for line in f:
             line = preprocess_line(line)  # implemented already.
-            # include '##<start cahr>' and '<end char>##'
+            # include '##<start char>' and '<end char>##'
             for j in range(len(line) - (2)):
                 trigram = line[j:j + 3]
                 pre = line[j:j + 2]
@@ -89,7 +89,7 @@ where alpha is a tunable smoothing parameter, and v is the size of vocabulary
 @:param alpha: smoothing parameter alpha
 @:return: language model
 '''
-def estimate_tri_prob(tri_cnts, bi_cnts, vocabulary, alpha = 0):
+def estimate_tri_prob(tri_cnts, bi_cnts, vocabulary, alpha):
     v = len(vocabulary)
     # dictionary to store the probability of each trigram
     model = defaultdict(float)
@@ -98,8 +98,8 @@ def estimate_tri_prob(tri_cnts, bi_cnts, vocabulary, alpha = 0):
         pre = bi_cnts[k[:2]]
         tri = tri_cnts[k]
         model[k] = (tri + alpha) / (pre + alpha * v)
-    return normalize_model(model)
 
+    return model
 '''
 Normalize given model such that the sum of probability is 1
 @:param model: the distribution of model
@@ -181,8 +181,8 @@ def get_perplexity(model, testfile):
         for line in f:
             line = preprocess_line(line)
             cnt += 1
-            p = get_sentence_prob(model, line)
-            logsum += np.log2(p)
+            logp = get_sentence_log_prob(model, line)
+            logsum += logp
         # get cross entropy
         cross_entropy = -logsum / cnt
         # get perplexity of whole test paragraph
@@ -190,19 +190,19 @@ def get_perplexity(model, testfile):
         return pp
 
 '''
-Given a language model and a sentence, calculate the probablity.
+Given a language model and a sentence, calculate the log probablity.
 @:param model: a language model stored in dictionary
 @:param line: the sentence
-@:return: the probability of this sentence
+@:return: the log probability of this sentence
 '''
-def get_sentence_prob(model, line):
-    p = 1
+def get_sentence_log_prob(model, line):
+    p = 0
     for j in range(len(line) - (2)):
         trigram = line[j:j + 3]
         prob = model[trigram]
         # TODO: what if current trigram is not in training model? We skip unknown word here
         if prob != 0:
-            p *= prob
+            p += np.log2(prob)
     return p
 
 '''
@@ -241,12 +241,12 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
 
     tri_counts, bi_counts, vocabulary = read_and_store(infile)
-    training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary)
+    training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary, alpha=0)
     write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
-    seq = generate_from_LM(training_model, 30)
+    seq = generate_from_LM(model, 30)
     print(seq)
-    # print(get_perplexity(training_model, "test"))
+    print(get_perplexity(training_model, "test"))
     # print(training_model)
     # show(infile)
 
