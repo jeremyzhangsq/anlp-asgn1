@@ -95,7 +95,7 @@ def estimate_tri_prob(tri_cnts, bi_cnts, vocabulary, alpha):
     model = defaultdict(float)
     for k in tri_counts:
         # TODO: the detail estimation need discussing
-        pre = bi_cnts[k[:2]]
+        pre = bi_cnts[k[:-1]]
         tri = tri_cnts[k]
         model[k] = (tri + alpha) / (pre + alpha * v)
 
@@ -176,7 +176,7 @@ Task 5: Given a language model and a test paragraph, calculate the perplexity.
 @:param testfile: the name of test file
 @:return: the perplexity
 '''
-def get_perplexity(model, testfile):
+def get_perplexity(model, bi_gram, alpha, v, testfile):
     logsum = 0
     cnt = 0
     with open(testfile) as f:
@@ -184,7 +184,7 @@ def get_perplexity(model, testfile):
         for line in f:
             line = preprocess_line(line)
             cnt += 1
-            logp = get_sentence_log_prob(model, line)
+            logp = get_sentence_log_prob(model,bi_gram, alpha, v, line)
             logsum += logp
         # get cross entropy
         cross_entropy = -logsum / cnt
@@ -198,14 +198,16 @@ Given a language model and a sentence, calculate the log probablity.
 @:param line: the sentence
 @:return: the log probability of this sentence
 '''
-def get_sentence_log_prob(model, line):
+def get_sentence_log_prob(model,bi_gram, alpha, v, line):
     p = 0
     for j in range(len(line) - (2)):
         trigram = line[j:j + 3]
-        prob = model[trigram]
         # TODO: what if current trigram is not in training model? We skip unknown word here
-        if prob != 0:
-            p += np.log2(prob)
+        if model[trigram] != 0:
+            prob = model[trigram]
+        else:
+            prob = alpha / (bi_gram[trigram[:-1]] + v*alpha)
+        p += np.log2(prob)
     return p
 
 '''
@@ -244,12 +246,14 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
 
     tri_counts, bi_counts, vocabulary = read_and_store(infile)
-    training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary, alpha=0)
+    a = 10
+    v = len(vocabulary)
+    training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary, alpha=a)
     write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
     seq = generate_from_LM(training_model, 300)
     print(seq)
-    print(get_perplexity(training_model, "test"))
+    print(get_perplexity(training_model, bi_counts, a, v,  "test"))
     # print(training_model)
     # show(infile)
 
