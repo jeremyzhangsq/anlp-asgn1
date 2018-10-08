@@ -39,7 +39,7 @@ def read_and_store(infile):
     # dictionary to store relation graph of third char and previous two chars
     # key (string): previous two chars e.g "an"
     # value (set): all third char
-    adjacent_map = defaultdict(set)
+    # adjacent_map = defaultdict(set)
 
     # set to store all third char in trigrams, e.g. 'd' in "and"
     vocabulary = set()
@@ -51,17 +51,17 @@ def read_and_store(infile):
                 trigram = line[j:j + 3]
                 pre = line[j:j + 2]
                 vocabulary.add(trigram[2])
-                adjacent_map[pre].add(trigram[2])
+                # adjacent_map[pre].add(trigram[2])
                 tri_counts[trigram] += 1
                 bi_counts[pre] += 1
 
-    new_map = defaultdict(list)
-    for key in adjacent_map:
-        new_map[key] = list(adjacent_map[key])
+    # new_map = defaultdict(list)
+    # for key in adjacent_map:
+    #     new_map[key] = list(adjacent_map[key])
+    #
+    # del adjacent_map
 
-    del adjacent_map
-
-    return tri_counts, bi_counts, new_map, vocabulary
+    return tri_counts, bi_counts, vocabulary
 
 '''
 Task 1: removing unnecessary characters from each line
@@ -98,7 +98,19 @@ def estimate_tri_prob(tri_cnts, bi_cnts, vocabulary, alpha = 0):
         pre = bi_cnts[k[:2]]
         tri = tri_cnts[k]
         model[k] = (tri + alpha) / (pre + alpha * v)
+    return normalize_model(model)
+
+'''
+Normalize given model such that the sum of probability is 1
+@:param model: the distribution of model
+@:return: the normalized distribution
+'''
+def normalize_model(model):
+    total = sum(model.values())
+    for k in model:
+        model[k] = model[k] / total
     return model
+
 '''
 Task 3: Write back estimated probabilities to an output file
 @:param outfile: filename
@@ -128,21 +140,31 @@ def read_model(infile):
 Task 4: By using a LM and probability, generate a random sequence with length k
 @:param lmodel: a language model stored in dictionary
 @:param k: the size of output sequence
-@:param adjacent_map: a dictionary to store first two chars and all their possible third char
 @:return: a random string sequence
 '''
-def generate_from_LM(lmodel, adjacent_map, k):
+def generate_from_LM(lmodel, k):
 
     if k % 3 != 0:
         raise Exception("Character size k cannot be divided by 3")
     else:
-        group = int(k / 3)
-        idx = random.randint(0, len(adjacent_map["##"])-1)
-        start = adjacent_map["##"][idx]
-        sequence = "##"+start
-        # TODO: use viterbi algorithm to select
+        # As noted elsewhere, the ordering of keys and values accessed from
+        # a dictionary is arbitrary. However we are guaranteed that keys()
+        # and values() will use the *same* ordering, as long as we have not
+        # modified the dictionary in between calling them.
+        outcomes = np.array(list(lmodel.keys()))
+        probs = np.array(list(lmodel.values()))
 
-        return sequence
+        # make an array with the cumulative sum of probabilities at each
+        # index (ie prob. mass func)
+        bins = np.cumsum(probs)
+        # create N random #s from 0-1
+        # digitize tells us which bin they fall into.
+        idx = np.digitize(np.random.random_sample(int(k/3)), bins)
+        # return the sequence of outcomes associated with that sequence of bins
+        seq = ""
+        for i in list(outcomes[idx]):
+            seq += i
+        return seq
 
 
 '''
@@ -218,14 +240,17 @@ if __name__ == '__main__':
 
     infile = sys.argv[1]  # get input argument: the training file
 
-    tri_counts, bi_counts, adjacent_map, vocabulary = read_and_store(infile)
+    tri_counts, bi_counts, vocabulary = read_and_store(infile)
     training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary)
     write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
-    seq = generate_from_LM(training_model,adjacent_map, 300)
-    print(get_perplexity(training_model, "test"))
-    print(training_model)
-    show(infile)
+    seq = generate_from_LM(training_model, 30)
+    print(seq)
+    # print(get_perplexity(training_model, "test"))
+    # print(training_model)
+    # show(infile)
+
+
 
 
 
