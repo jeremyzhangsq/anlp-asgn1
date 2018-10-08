@@ -152,7 +152,10 @@ def generate_from_LM(lmodel, k):
         # and values() will use the *same* ordering, as long as we have not
         # modified the dictionary in between calling them.
         outcomes = np.array(list(lmodel.keys()))
-        probs = np.array(list(lmodel.values()))
+        # normalize the probability distribution to 0-1
+        total = sum(lmodel.values())
+        alist = [a/total for a in lmodel.values()]
+        probs = np.array(alist)
 
         # make an array with the cumulative sum of probabilities at each
         # index (ie prob. mass func)
@@ -244,7 +247,7 @@ if __name__ == '__main__':
     training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary, alpha=0)
     write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
-    seq = generate_from_LM(model, 30)
+    seq = generate_from_LM(training_model, 300)
     print(seq)
     print(get_perplexity(training_model, "test"))
     # print(training_model)
