@@ -102,7 +102,6 @@ P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)
 where alpha is a tunable smoothing parameter, and v is the size of
 @:param tri_cnts: a dictionary containing all tri-gram counts
 @:param bi_cnts: a dictionary containing all bi-gram counts
-@:paramset containing all third chars in training set
 @:param alpha: smoothing parameter alpha
 @:return: language model
 '''
@@ -233,6 +232,14 @@ def get_sentence_log_prob(model,bi_gram, alpha, line):
         p += np.log2(prob)
     return p
 
+
+'''
+Try different alpha and return the language model with least perplexity
+@:param tri_cnts: a dictionary containing all tri-gram counts
+@:param bi_cnts: a dictionary containing all bi-gram counts
+@:param validation_set: list of lines for validation
+@:return best_alpha, best_perplexity, best_model
+'''
 def adding_alpha_training_LM(tri_counts, bi_counts, validaion_set):
 
     best_alpha = 0
@@ -251,10 +258,16 @@ def adding_alpha_training_LM(tri_counts, bi_counts, validaion_set):
     print("alpha:", round(best_alpha, 2), "perplexity:", best_perplexity)
     return best_alpha, best_perplexity, best_model
 
+# TODO: Johanna's task
+# iteratively test all possible lambda1,2,3
 def interpolation_training_LM(model, validation_set):
 
     pass
 
+# TODO: Johanna's task
+def interpolation_estimate(tri_counts, bi_counts, lam1, lam2):
+
+    pass
 
 '''
 Some example code that prints out the counts. For small input files
