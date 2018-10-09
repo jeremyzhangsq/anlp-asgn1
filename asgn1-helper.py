@@ -11,7 +11,7 @@ from collections import defaultdict
 variable declaration part
 ============================================================
 '''
-
+VOCABULARY_SIZE = 30
 '''
 ============================================================
 function declaration part
@@ -20,12 +20,16 @@ function declaration part
 
 
 '''
-Read in training file and store trigram count into dictionary 'tri_counts' 
+Read in file and split into training, validation, test set, 
+also store trigram count into dictionary 'tri_counts' 
 @:param infile: input file name
-@:returns: tri_counts, bi_counts, vocabulary
+@:param ratios: a list contains split ratio [train_ratio, val_ratio, test_ratio,]  
+@:returns: tri_counts, bi_counts, validation_list, test_list
 '''
-def read_and_store(infile):
+def read_and_store(infile, ratios):
 
+    if sum(ratios) != 1:
+        raise Exception("The sum of split ratio should be one` ")
     # dictionary to store counts of all trigrams in input
     # key (string): trigram e.g "and"
     # value (int): counts of the key
@@ -41,19 +45,33 @@ def read_and_store(infile):
     # value (set): all third char
     # adjacent_map = defaultdict(set)
 
-    # set to store all third char in trigrams, e.g. 'd' in "and"
-    vocabulary = set()
+    # validation list
+    validation_list = []
+
+    # test list
+    test_list = []
+
+    bins = np.cumsum(ratios)
+
     with open(infile) as f:
         for line in f:
             line = preprocess_line(line)  # implemented already.
-            # include '##<start char>' and '<end char>##'
-            for j in range(len(line) - (2)):
-                trigram = line[j:j + 3]
-                pre = line[j:j + 2]
-                vocabulary.add(trigram[2])
-                # adjacent_map[pre].add(trigram[2])
-                tri_counts[trigram] += 1
-                bi_counts[pre] += 1
+            idx = np.digitize(random.random(), bins)
+            # idx = 0 means the random variable is a training item
+            if idx == 0:
+                # include '##<start char>' and '<end char>##'
+                for j in range(len(line) - (2)):
+                    trigram = line[j:j + 3]
+                    pre = line[j:j + 2]
+                    # adjacent_map[pre].add(trigram[2])
+                    tri_counts[trigram] += 1
+                    bi_counts[pre] += 1
+            # idx = 1 means the random variable is a validation item
+            elif idx == 1:
+                validation_list.append(line)
+            # idx = 2 means the random variable is a testing item
+            else:
+                test_list.append(line)
 
     # new_map = defaultdict(list)
     # for key in adjacent_map:
@@ -61,7 +79,7 @@ def read_and_store(infile):
     #
     # del adjacent_map
 
-    return tri_counts, bi_counts, vocabulary
+    return tri_counts, bi_counts, validation_list, test_list
 
 '''
 Task 1: removing unnecessary characters from each line
@@ -81,23 +99,21 @@ Store probabilities into global dictionary 'train_model'
 The calculation formula is lec6, slide 13:
 
 P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
-where alpha is a tunable smoothing parameter, and v is the size of vocabulary
-
+where alpha is a tunable smoothing parameter, and v is the size of
 @:param tri_cnts: a dictionary containing all tri-gram counts
 @:param bi_cnts: a dictionary containing all bi-gram counts
-@:param vocabulary: vocabulary set containing all third chars in training set
+@:paramset containing all third chars in training set
 @:param alpha: smoothing parameter alpha
 @:return: language model
 '''
-def estimate_tri_prob(tri_cnts, bi_cnts, vocabulary, alpha):
-    v = len(vocabulary)
-    # dictionary to store the probability of each trigram
+def estimate_tri_prob(tri_cnts, bi_cnts, alpha):
+    v = len    # dictionary to store the probability of each trigram
     model = defaultdict(float)
     for k in tri_counts:
         # TODO: the detail estimation need discussing
         pre = bi_cnts[k[:-1]]
         tri = tri_cnts[k]
-        model[k] = (tri + alpha) / (pre + alpha * v)
+        model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
 
     return model
 '''
@@ -176,7 +192,7 @@ Task 5: Given a language model and a test paragraph, calculate the perplexity.
 @:param testfile: the name of test file
 @:return: the perplexity
 '''
-def get_perplexity(model, bi_gram, alpha, v, testfile):
+def get_perplexity(model, bi_gram, alpha, testfile):
     logsum = 0
     cnt = 0
     with open(testfile) as f:
@@ -184,7 +200,7 @@ def get_perplexity(model, bi_gram, alpha, v, testfile):
         for line in f:
             line = preprocess_line(line)
             cnt += 1
-            logp = get_sentence_log_prob(model,bi_gram, alpha, v, line)
+            logp = get_sentence_log_prob(model,bi_gram, alpha, line)
             logsum += logp
         # get cross entropy
         cross_entropy = -logsum / cnt
@@ -198,7 +214,7 @@ Given a language model and a sentence, calculate the log probablity.
 @:param line: the sentence
 @:return: the log probability of this sentence
 '''
-def get_sentence_log_prob(model,bi_gram, alpha, v, line):
+def get_sentence_log_prob(model,bi_gram, alpha, line):
     p = 0
     for j in range(len(line) - (2)):
         trigram = line[j:j + 3]
@@ -206,7 +222,7 @@ def get_sentence_log_prob(model,bi_gram, alpha, v, line):
         if model[trigram] != 0:
             prob = model[trigram]
         else:
-            prob = alpha / (bi_gram[trigram[:-1]] + v*alpha)
+            prob = alpha / (bi_gram[trigram[:-1]] + VOCABULARY_SIZE*alpha)
         p += np.log2(prob)
     return p
 
@@ -245,15 +261,15 @@ if __name__ == '__main__':
 
     infile = sys.argv[1]  # get input argument: the training file
 
-    tri_counts, bi_counts, vocabulary = read_and_store(infile)
+    tri_counts, bi_counts,validation_list, test_list = read_and_store(infile, [0.8,0.1,0.1])
     a = 10
-    v = len(vocabulary)
-    training_model = estimate_tri_prob(tri_counts, bi_counts, vocabulary, alpha=a)
+
+    training_model = estimate_tri_prob(tri_counts, bi_counts, alpha=a)
     write_back_prob("outfile.txt", training_model)
     model = read_model("model-br.en")
     seq = generate_from_LM(training_model, 300)
     print(seq)
-    print(get_perplexity(training_model, bi_counts, a, v,  "test"))
+    print(get_perplexity(training_model, bi_counts, a,  "test"))
     # print(training_model)
     # show(infile)
 
