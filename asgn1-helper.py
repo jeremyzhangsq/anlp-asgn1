@@ -106,7 +106,7 @@ where alpha is a tunable smoothing parameter, and v is the size of
 @:param alpha: smoothing parameter alpha
 @:return: language model
 '''
-def estimate_tri_prob(tri_cnts, bi_cnts, alpha):
+def add_alpha_estimate(tri_cnts, bi_cnts, alpha):
     v = len    # dictionary to store the probability of each trigram
     model = defaultdict(float)
     for k in tri_counts:
@@ -190,23 +190,30 @@ def generate_from_LM(lmodel, k):
 Task 5: Given a language model and a test paragraph, calculate the perplexity.
 @:param model: a language model stored in dictionary
 @:param testfile: the name of test file
+@:param flag: flag is 0 means test data is from file, 1 means it is from dictionary
 @:return: the perplexity
 '''
-def get_perplexity(model, bi_gram, alpha, testfile):
+def get_perplexity(model, bi_gram, alpha, testfile, flag):
     logsum = 0
     cnt = 0
-    with open(testfile) as f:
-        # calculate the log probability of each sentence and sum them up
-        for line in f:
+    if flag == 0:
+        fo = open(testfile, "r")
+        lines = fo.readlines()
+        fo.close()
+    else:
+        lines = testfile
+    # calculate the log probability of each sentence and sum them up
+    for line in lines:
+        if flag == 0:
             line = preprocess_line(line)
-            cnt += 1
-            logp = get_sentence_log_prob(model,bi_gram, alpha, line)
-            logsum += logp
-        # get cross entropy
-        cross_entropy = -logsum / cnt
-        # get perplexity of whole test paragraph
-        pp = np.exp2(cross_entropy)
-        return pp
+        cnt += 1
+        logp = get_sentence_log_prob(model, bi_gram, alpha, line)
+        logsum += logp
+    # get cross entropy
+    cross_entropy = -logsum / cnt
+    # get perplexity of whole test paragraph
+    pp = np.exp2(cross_entropy)
+    return pp
 
 '''
 Given a language model and a sentence, calculate the log probablity.
@@ -225,6 +232,29 @@ def get_sentence_log_prob(model,bi_gram, alpha, line):
             prob = alpha / (bi_gram[trigram[:-1]] + VOCABULARY_SIZE*alpha)
         p += np.log2(prob)
     return p
+
+def adding_alpha_training_LM(tri_counts, bi_counts, validaion_set):
+
+    best_alpha = 0
+    best_perplexity = np.inf
+    best_model = -1
+    for a in np.arange(0.01, 1, 0.01):
+        training_model = add_alpha_estimate(tri_counts, bi_counts, alpha=a)
+        cur = get_perplexity(training_model, bi_counts, a, validaion_set, flag=1)
+        print("alpha:",round(a,2),"perplexity:",cur)
+        if cur < best_perplexity:
+            best_alpha = a
+            best_perplexity = cur
+            best_model = training_model
+
+    print("======================best===========================")
+    print("alpha:", round(best_alpha, 2), "perplexity:", best_perplexity)
+    return best_alpha, best_perplexity, best_model
+
+def interpolation_training_LM(model, validation_set):
+
+    pass
+
 
 '''
 Some example code that prints out the counts. For small input files
@@ -261,15 +291,11 @@ if __name__ == '__main__':
 
     infile = sys.argv[1]  # get input argument: the training file
 
-    tri_counts, bi_counts,validation_list, test_list = read_and_store(infile, [0.8,0.1,0.1])
-    a = 10
-
-    training_model = estimate_tri_prob(tri_counts, bi_counts, alpha=a)
-    write_back_prob("outfile.txt", training_model)
+    tri_counts, bi_counts, validation_list, test_list = read_and_store(infile, [0.8,0.1,0.1])
+    best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
+    write_back_prob("outfile.txt", best_model)
     model = read_model("model-br.en")
-    seq = generate_from_LM(training_model, 300)
-    print(seq)
-    print(get_perplexity(training_model, bi_counts, a,  "test"))
+    seq = generate_from_LM(best_model, 300)
     # print(training_model)
     # show(infile)
 
