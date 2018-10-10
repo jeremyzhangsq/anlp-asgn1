@@ -84,6 +84,28 @@ def read_and_store(infile, ratios):
 
     return tri_counts, bi_counts, uni_counts, validation_list, test_list
 
+"""
+Inserts missing trigrams unless they are impossible.
+@:param counts: counts dictionary
+@:return counts: counts dictionary with possible but unseen trigrams added with count 0
+"""
+def missing_items (counts):
+    gram_length = len(model.keys()[0]) # how many characters are combined
+    all_combs = itertools.product(re.compile("[\s.A-Za-z0-9]", gram_length))
+    sonority_constraint2 = re.compile("[bdgptkqx]") # Stops and affricates
+    sonority_constraint1 = re.compile("[b-df-hj-np-rt-x]") # Characters mapping to sounds that are equal or higher in sonority in relation to sonority_constraint1 phonemes
+    impossible_comb = ["\.##", "#"+sonority_constraint1+sonority_constraint2] # This needs refining
+    impossible_comb.append("#"+sonority_constraint1.group()+sonority_constraint2.group())
+    impossible_comb.append(sonority_constraint1.group()+sonority_constraint2.group()+"#")
+    for j in all_combs:  # This would add them before normalization, which is fine I think?
+        if j not in counts:  # Would this add trigrams to bigram models etc?
+            if gram_length == 3:  # Only for trigrams
+                if j not in impossible_comb:
+                    counts[j] = 0
+            else:
+                counts[j] = 0
+    return counts
+
 '''
 Task 1: removing unnecessary characters from each line
 @:param line: a line of string from input file
@@ -128,22 +150,8 @@ Normalize given model such that the sum of probability is 1. Add all missing ite
 '''
 def normalize_model(model):
     total = sum(model.values())
-    gram_length = len(model.keys()[0]) # how many characters are combined
-    all_combs = itertools.product(re.compile("[\s.A-Za-z0-9]", gram_length))
-    sonority_constraint2 = re.compile("[bdgptkqx]") # Stops and affricates
-    sonority_constraint1 = re.compile("[b-df-hj-np-rt-x]") # Characters mapping to sounds that are equal or higher in sonority in relation to sonority_constraint1 phonemes
-    impossible_comb = ["\.##", "#"+sonority_constraint1+sonority_constraint2] # This needs refining
-    impossible_comb.append("#"+sonority_constraint1.group()+sonority_constraint2.group())
-    impossible_comb.append(sonority_constraint1.group()+sonority_constraint2.group()+"#")
     for k in model:
         model[k] = model[k] / total
-        for j in all_combs: # Assume it's ok to add them after getting relative frequencies? Or better before? Could add something about impossible combinations.
-            if j not in model: # Would this add trigrams to bigram models etc?
-                if gram_length == 3: #Only for trigrams
-                    if j not in impossible_comb:
-                        model[j] = 0
-                else:
-                    model[j] = 0
     return model
 
 '''
@@ -291,12 +299,12 @@ Task 3: Estimate trigram probabilities using interpolation.
 @:param lam3: interpolation parameter used with unigram probabilities
 @:return model: dictionary containing all theoretically possible trigrams and their estimated probabilities
 """
-def interpolation_estimate(normalized_tri, normalized_bi, normalized_uni, lam1, lam2, lam3):
+def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
     model = defaultdict(float)
     for i in normalized_tri.keys():
         bi_key = i[1:2]
         uni_key = i[2]
-        model[i] = lam1*normalized_tri[i]+lam2*normalized_bi[bi_key]+lam3*normalized_uni[uni_key]
+        model[i] = lam1*(tri_counts[i]/bi_counts[bi_key])+lam2*(bi_counts[bi_key]/uni_counts[uni_key])+lam3*(uni_counts[uni_key]/len(uni_counts))
     return model
 
 
@@ -318,7 +326,7 @@ def interpolation_training_LM(normalized_tri, normalized_bi, normalized_uni, val
         for lam2 in l2:
             for lam3 in l3:
                 if lam1+lam2+lam3 == 1:
-                    training_model = interpolation_estimate(normalized_tri, normalized_bi, normalized_uni, lam1, lam2, lam3)
+                    training_model = interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3)
                     cur = get_perplexity(training_model, validation_list, flag=1)
                     if cur < best_perplexity:
                         best_lam1 = lam1
@@ -368,11 +376,11 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
 
     tri_counts, bi_counts, uni_counts, validation_list, test_list = read_and_store(infile, [0.8,0.1,0.1])
-    normalized_tri = normalize_model(tri_counts)
-    normalized_bi = normalize_model(bi_counts)
-    normalized_uni = normalize_model(uni_counts)
+    full_tri_counts = missing_items(tri_counts)
+    full_bi_counts = missing_items(bi_counts)
+    full_uni_counts = missing_items(uni_counts)
     #best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
-    best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(normalized_tri, normalized_bi, normalized_uni, validation_list)
+    best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     print (get_perplexity(model, test_list, flag = 1))
     write_back_prob("outfile.txt", best_model)
     model = read_model("model-br.en")
