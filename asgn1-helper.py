@@ -351,7 +351,7 @@ Find the best values for interpolation parameters lamba1, lamba2, lambda3.
 @:param validation_list: held-out set from training data
 @:return best_lam1, best_lam2, best_lam3, best_perplexity, best_model: the best estimates for lambda1, lambda2 and lambda 3, the associated model and its perplexity
 """
-def interpolation_training_LM(normalized_tri, normalized_bi, normalized_uni, validation_list):
+def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list):
     l1 = np.arange(0, 1, 0.01)
     l2 = np.arange(0, 1, 0.01)
     l3 = np.arange(0, 1, 0.01)
