@@ -215,6 +215,45 @@ def generate_from_LM(lmodel, k):
 
 
 '''
+Task 4: Generate a random sequence of length k character by character.
+@:param lmodel: a language model stored in dictionary
+@:param k: the size of output sequence
+@:return: a random string sequence
+'''
+
+
+def generate_from_LM_v2(model, k):
+    if k < 3:
+        raise Exception("Please specify a sequence of at least three characters.") # Not needed?
+    else:
+        list_seq = []
+        list_seq.append("##")
+        context_dict = {} # Create dictionary containing only unique history and possible continuations associated with their probabilities (excerpt from model dictionary)
+        while len(k) >= 0:
+            for entry in model.keys():
+                if model.keys()[:1] == list_seq[-2:]:
+                    context_dict[entry] = model[entry]
+                outcome = np.array(list(context_dict.keys()))
+                prob = np.array(list(context_dict.values()))
+                next_char = np.random.choice(outcome, p = prob)
+                list_seq.append(next_char)
+                context_dict.clear()
+            k = k-1
+        sequence = ''.join(list_seq)
+        return sequence
+
+'''
+Make the generated sequence easier to read by removing non-character #
+@:param generated: Randomly generated string
+@:return: readable sequence
+'''
+def readable_generated_seq (generated):
+    sequence_sub = re.compile("#")
+    sequence_print = sequence_sub.sub("", generated)
+    return sequence_print
+
+
+'''
 Task 5: Given a language model and a test paragraph, calculate the perplexity.
 @:param model: a language model stored in dictionary
 @:param testfile: name of the testfile
@@ -385,7 +424,9 @@ if __name__ == '__main__':
     print (get_perplexity(model, test_list, flag = 1))
     write_back_prob("outfile.txt", best_model)
     model = read_model("model-br.en")
-    seq = generate_from_LM(best_model, 300)
+    #seq = generate_from_LM(best_model, 300)
+    seq = generate_from_LM_v2(best_model, 300)
+    tidied_seq = readable_generated_seq(seq)
     # print(training_model)
     # show(infile)
 
