@@ -89,12 +89,13 @@ Inserts missing trigrams unless they are impossible.
 @:param counts: counts dictionary
 @:return counts: counts dictionary with possible but unseen trigrams added with count 0
 """
+#TODO: Even if we don't include some trigrams now, they will be inserted at count 0 during estimation so no actual distinction between possible and impossible unseen trigrams yet.
 def missing_items (counts):
     gram_length = len(model.keys()[0]) # how many characters are combined
     all_combs = itertools.product(re.compile("[\s.A-Za-z0-9]", gram_length))
     sonority_constraint2 = re.compile("[bdgptkqx]") # Stops and affricates
     sonority_constraint1 = re.compile("[b-df-hj-np-rt-x]") # Characters mapping to sounds that are equal or higher in sonority in relation to sonority_constraint1 phonemes
-    impossible_comb = ["\.##", "#"+sonority_constraint1+sonority_constraint2] # This needs refining
+    impossible_comb = ["\.##", "#"+sonority_constraint1+sonority_constraint2] # This needs refining-- add white space as word boundary!
     impossible_comb.append("#"+sonority_constraint1.group()+sonority_constraint2.group())
     impossible_comb.append(sonority_constraint1.group()+sonority_constraint2.group()+"#")
     for j in all_combs:  # This would add them before normalization, which is fine I think?
