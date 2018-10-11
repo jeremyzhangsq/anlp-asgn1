@@ -95,7 +95,7 @@ def missing_items (counts):
     all_combs = itertools.product(re.compile("[\s.A-Za-z0-9]", gram_length))
     sonority_constraint2 = re.compile("[bdgptkqx]") # Stops and affricates
     sonority_constraint1 = re.compile("[b-df-hj-np-rt-x]") # Characters mapping to sounds that are equal or higher in sonority in relation to sonority_constraint1 phonemes
-    impossible_comb = ["\.##", "#"+sonority_constraint1+sonority_constraint2] # This needs refining-- add white space as word boundary!
+    impossible_comb = ["\.##", "#"+sonority_constraint1+sonority_constraint2] # This needs refining-- also add white space as word boundary!
     impossible_comb.append("#"+sonority_constraint1.group()+sonority_constraint2.group())
     impossible_comb.append(sonority_constraint1.group()+sonority_constraint2.group()+"#")
     for j in all_combs:  # This would add them before normalization, which is fine I think?
@@ -227,15 +227,15 @@ def generate_from_LM_v2(model, k):
         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
     else:
         list_seq = []
-        list_seq.append("##")
-        context_dict = {} # Create dictionary containing only unique history and possible continuations associated with their probabilities (excerpt from model dictionary)
+        list_seq.append("#", "#")
+        context_dict = {} # Create dictionary containing possible continuations of unique history associated with their probabilities (excerpt from model dictionary) with last character as key
         while len(k) >= 0:
             for entry in model.keys():
                 if model.keys()[:1] == list_seq[-2:]:
-                    context_dict[entry] = model[entry]
+                    context_dict[entry[2]] = model[entry]
                 outcome = np.array(list(context_dict.keys()))
                 prob = np.array(list(context_dict.values()))
-                next_char = np.random.choice(outcome, p = prob)
+                next_char = np.random.choice(outcome, p = prob) # This selects too many characters
                 list_seq.append(next_char)
                 context_dict.clear()
             k = k-1
@@ -274,7 +274,7 @@ def get_perplexity(model, testfile, flag):
         if flag == 0:
             line = preprocess_line(line)
         cnt += 1
-        logp = get_sentence_log_prob(model, line)
+        logp = get_sequence_log_prob(model, line)
         logsum += logp
     # get cross entropy
     cross_entropy = -logsum / cnt
@@ -283,22 +283,16 @@ def get_perplexity(model, testfile, flag):
     return pp
 
 '''
-Given a language model and a sentence, calculate the log probablity.
+Given a language model and a sequence. calculate the log probablity.
 @:param model: a language model stored in dictionary
 @:param line: the sentence
 @:return: the log probability of this sentence
 '''
-def get_sentence_log_prob(model,line):
+def get_sequence_log_prob(model, line):
     p = 0
     for j in range(len(line) - (2)):
         trigram = line[j:j + 3]
         # TODO: what if current trigram is not in training model? We skip unknown word here
-        # Tried to solve in normalize_model
-        if model[trigram] != 0: # all trigrams should be assigned a probability through interpolation
-            prob = model[trigram]
-        else:
-            # prob = alpha / (bi_gram[trigram[:-1]] + VOCABULARY_SIZE*alpha)
-
         p += np.log2(prob)
     return p
 
@@ -341,7 +335,7 @@ Task 3: Estimate trigram probabilities using interpolation.
 """
 def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
     model = defaultdict(float)
-    for i in normalized_tri.keys():
+    for i in tri_counts.keys():
         bi_key = i[1:2]
         uni_key = i[2]
         model[i] = lam1*(tri_counts[i]/bi_counts[bi_key])+lam2*(bi_counts[bi_key]/uni_counts[uni_key])+lam3*(uni_counts[uni_key]/len(uni_counts))
