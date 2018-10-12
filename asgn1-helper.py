@@ -418,8 +418,8 @@ if __name__ == '__main__':
         print("Usage: ", sys.argv[0], "<training_file>")
         sys.exit(1)
 
-    #infile = sys.argv[1]  # get input argument: the training file
-    infile = "training.en"
+    infile = sys.argv[1]  # get input argument: the training file
+    #infile = "training.en"
     tri_counts, bi_counts, uni_counts, validation_list, test_list = read_and_store(infile, [0.8, 0.1, 0.1])
     full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
     #best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
