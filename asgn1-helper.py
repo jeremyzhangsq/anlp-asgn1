@@ -173,7 +173,6 @@ def add_alpha_estimate(tri_cnts, bi_cnts, alpha):
     v = len    # dictionary to store the probability of each trigram
     model = defaultdict(float)
     for k in tri_counts:
-        # TODO: the detail estimation need discussing
         pre = bi_cnts[k[:-1]]
         tri = tri_cnts[k]
         model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
