@@ -91,7 +91,6 @@ Inserts missing trigrams and assigns all impossible combinations to <UNK>
 @:return counts: counts dictionary with possible but unseen trigrams added with count 0
 """
 
-
 def missing_items (tri_counts, bi_counts, uni_counts):
 
     all_letters = list(string.ascii_lowercase)
@@ -136,8 +135,6 @@ def missing_items (tri_counts, bi_counts, uni_counts):
                 tri_counts["<UNK>"] += 1
                 bi_counts["<UNK>"] += 1
                 uni_counts["<UNK>"] += 1
-        else:
-            tri_counts[k] = 0
 
     return tri_counts, bi_counts, uni_counts
 
@@ -234,16 +231,21 @@ def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
     model = defaultdict(float)
     total = sum(uni_counts.values())
     for i in tri_counts.keys():
-        bi_key = i[-2:]
+        last_two = i[1:]
+        first_two = i[:-1]
         uni_key = i[2]
-        if bi_counts[bi_key] > 0:
-            p_tri = tri_counts[i]/bi_counts[bi_key]
+        if bi_counts[first_two] > 0:
+            p_tri = tri_counts[i]/bi_counts[first_two]
         else:
             p_tri = 0
         if uni_counts[uni_key] > 0:
-            p_bi = bi_counts[bi_key]/uni_counts[uni_key]
+            p_bi = bi_counts[last_two]/uni_counts[uni_key]
+        else:
+            p_bi = 0
         p_uni = uni_counts[uni_key] / total
-        model[i] = lam1*p_tri+lam2*p_bi+lam3*p_uni
+        val = lam1*p_tri+lam2*p_bi+lam3*p_uni
+
+        model[i] = val
     return model
 
 """
@@ -258,9 +260,9 @@ Find the best values for interpolation parameters lambda1, lambda2, lambda3.
 
 def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list):
 
-    l1 = np.arange(0, 1, 0.01)
-    l2 = np.arange(0, 1, 0.01)
-    l3 = np.arange(0, 1, 0.01)
+    l1 = np.arange(0, 1, 0.1)
+    l2 = np.arange(0, 1, 0.1)
+    l3 = np.arange(0, 1, 0.1)
     best_perplexity = np.inf
     for lam1 in l1:
         for lam2 in l2:
@@ -268,6 +270,8 @@ def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list
                 if lam1+lam2+lam3 == 1:
                     training_model = interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3)
                     cur = get_perplexity(training_model, validation_list, flag=1)
+                    # print("lam1:", round(lam1, 2), "lam2:", round(lam2, 2), "lam3:", round(lam3, 2),
+                    #       "perplexity:", best_perplexity)
                     if cur < best_perplexity:
                         best_lam1 = lam1
                         best_lam2 = lam2
@@ -276,8 +280,10 @@ def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list
                         best_model = training_model
 
     print("======================best===========================")
-    print("lam1:", round(best_lam1, 2), "lam2:", round(best_lam2, 2), "lam3:", round(best_lam3, 2), "perplexity:", best_perplexity)
+    print("lam1:", round(best_lam1, 2), "lam2:", round(best_lam2, 2), "lam3:", round(best_lam3, 2), "perplexity:",
+          best_perplexity)
     return best_lam1, best_lam2, best_lam3, best_perplexity, best_model
+
 
 '''
 Task 4: Generate a random sequence of length k character by character.
@@ -377,7 +383,7 @@ def adding_alpha_training_LM(tri_counts, bi_counts, validation_set):
     best_model = -1
     for a in np.arange(0.01, 1, 0.01):
         training_model = add_alpha_estimate(tri_counts, bi_counts, alpha=a)
-        cur = get_perplexity(training_model, bi_counts, a, validation_set, flag=1)
+        cur = get_perplexity(training_model, validation_set, flag=1)
         print("alpha:",round(a,2),"perplexity:",cur)
         if cur < best_perplexity:
             best_alpha = a
@@ -422,17 +428,19 @@ if __name__ == '__main__':
         sys.exit(1)
 
     infile = sys.argv[1]  # get input argument: the training file
+    random.seed(1)
     # infile = "training.en"
     tri_counts, bi_counts, uni_counts, validation_list, test_list = read_and_store(infile, [0.8, 0.1, 0.1])
     full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
     # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
-    print (get_perplexity(model, test_list, flag = 1))
+    print ("Our model:",get_perplexity(best_model, test_list, flag=1))
     write_back_prob("outfile.txt", best_model)
     model = read_model("model-br.en")
-    #seq = generate_from_LM(best_model, 300)
+    print("Given model:",get_perplexity(model, test_list, flag=1))
+    # #seq = generate_from_LM(best_model, 300)
     seq = generate_from_LM_v2(best_model, 300)
-    tidied_seq = readable_generated_seq(seq)
+    # tidied_seq = readable_generated_seq(seq)
     # print(training_model)
     # show(infile)
 
