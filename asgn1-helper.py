@@ -148,12 +148,15 @@ Task 1: removing unnecessary characters from each line
 '''
 def preprocess_line(line):
     rule = re.compile("[^\s.A-Za-z0-9]")
-    line = rule.sub('', line)  # newline with only digit, alphabet, space and dot.
-    line = re.sub("(\s)([A-Z]{2,})(\s)", "\s", line) # Remove abbreviations enclosed by whitespace (substitue with whitespace)
-    line = re.sub("(\s|#)([A-Z]{2,})(\s|#)", "#", line) # Remove abbreviations that border sequence start or stop (substitute with #)
-    line = re.sub("(\s|#)([A-Z]{2,})(\s|#|\.)", ".", line) # Remove abbreviations that precede full stop (substitute with .)
+    # newline with only digit, alphabet, space and dot.
+    line = rule.sub('', line)
+    # replace excess number of white spaces with one white space
+    line = re.sub('\s{2,}', ' ', line)
+    # Remove abbreviations enclosed by whitespace (substitue with whitespace)
+    line = re.sub('\s[A-Z]{2,}\s', ' ', line)
+    # Remove abbreviations that precede all punctuation (substitute with .)
+    line = re.sub("\s([A-Z]{2,}).", '.', line)
     line = re.sub("[1-9]", "0", line)  # replace 1-9 with 0
-    line = re.sub("\s{2.}", "\s", line) # replace excess number of white spaces with one white space
     line = "##"+line.lower()[:-1]+"#"  # add character'##' to specify start and # to specify stop
     return line
 
@@ -170,13 +173,11 @@ where alpha is a tunable smoothing parameter, and v is the size of
 @:return: language model
 '''
 def add_alpha_estimate(tri_cnts, bi_cnts, alpha):
-    v = len    # dictionary to store the probability of each trigram
     model = defaultdict(float)
     for k in tri_counts:
         pre = bi_cnts[k[:-1]]
         tri = tri_cnts[k]
         model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
-
     return model
 
 
@@ -227,7 +228,6 @@ Task 3: Estimate trigram probabilities using interpolation.
 @:param lam3: interpolation parameter used with unigram probabilities
 @:return model: dictionary containing all theoretically possible trigrams and their estimated probabilities
 """
-
 
 def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
 
@@ -408,8 +408,6 @@ def show(infile):
 
 
 
-
-
 '''
 ============================================================
 program running part
@@ -424,10 +422,10 @@ if __name__ == '__main__':
         sys.exit(1)
 
     infile = sys.argv[1]  # get input argument: the training file
-    #infile = "training.en"
+    # infile = "training.en"
     tri_counts, bi_counts, uni_counts, validation_list, test_list = read_and_store(infile, [0.8, 0.1, 0.1])
     full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
-    #best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
+    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     print (get_perplexity(model, test_list, flag = 1))
     write_back_prob("outfile.txt", best_model)
