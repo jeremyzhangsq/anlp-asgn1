@@ -297,10 +297,9 @@ def generate_from_LM_v2(model, k):
     if k < 3:
         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
     else:
-        list_seq = []
-        list_seq.extend(["#", "#"])
+        list_seq = ["##"]
         context_dict = {} # Create dictionary containing possible continuations of unique history associated with their probabilities (excerpt from model dictionary) with last trigram character as key
-        while len(k) > 0:
+        while k > 0:
             for entry in model.keys():
                 if model.keys()[:1] == list_seq[-2:]:
                     context_dict[entry[2]] = model[entry]
