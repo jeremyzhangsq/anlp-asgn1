@@ -157,7 +157,7 @@ def preprocess_line(line):
     line = re.sub('\s[A-Z]{2,}\s', ' ', line)
     # Remove abbreviations that precede all punctuation (substitute with .)
     line = re.sub("\s([A-Z]{2,}).", '.', line)
-    line = re.sub("[1-9]", "0", line)  # replace 1-9 with 0
+    line = re.sub("[0-9]{1,}", "0", line)  # replace 1-9 with 0
     line = "##"+line.lower()[:-1]+"#"  # add character'##' to specify start and # to specify stop
     return line
 
@@ -522,8 +522,8 @@ if __name__ == '__main__':
     # #seq = generate_from_LM(best_model, 300)
     print("=======================================")
     for i in range(20):
-        seq = generate_from_LM_v2(best_model, adjcent_map, 100)
-        # seq = readable_generated_seq(seq)
+        seq = generate_from_LM_v2(best_model, adjcent_map, 300)
+        seq = readable_generated_seq(seq)
         print(seq,"\n")
     # tidied_seq = readable_generated_seq(seq)
     # print(training_model)
