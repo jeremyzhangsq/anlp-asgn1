@@ -494,11 +494,13 @@ if __name__ == '__main__':
     write_back_prob("outfile.txt", best_model)
     model = read_model("model-br.en")
     print("Given model:",get_perplexity(model, test_list, flag=1))
+    print("Our model in test file:", get_perplexity(best_model, "test", flag=0))
+    print("Given model in test file:", get_perplexity(model, "test", flag=0))
     # #seq = generate_from_LM(best_model, 300)
-    for i in range(50):
-        seq = generate_from_LM_v2(best_model, adjcent_map, 300)
-        seq = readable_generated_seq(seq)
-        print(seq,"\n")
+    # for i in range(50):
+    #     seq = generate_from_LM_v2(best_model, adjcent_map, 300)
+    #     seq = readable_generated_seq(seq)
+    #     print(seq,"\n")
     # tidied_seq = readable_generated_seq(seq)
     # print(training_model)
     # show(infile)
