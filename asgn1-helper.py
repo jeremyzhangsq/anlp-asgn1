@@ -54,6 +54,8 @@ def read_and_store(infile, ratios):
     # test list
     test_list = []
 
+    train_list = []
+
     bins = np.cumsum(ratios)
 
     with open(infile) as f:
@@ -62,6 +64,7 @@ def read_and_store(infile, ratios):
             idx = np.digitize(random.random(), bins)
             # idx = 0 means the random variable is a training item
             if idx == 0:
+                train_list.append(line)
                 # include '##<start char>' and '<end char>##' -- included in preprocessing?
                 for j in range(len(line) - (2)):
                     trigram = line[j:j + 3]
@@ -84,7 +87,7 @@ def read_and_store(infile, ratios):
     #
     # del adjacent_map
 
-    return adjacent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list
+    return train_list, adjacent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list
 
 """
 Inserts missing trigrams and assigns all impossible combinations to <UNK>
@@ -234,7 +237,7 @@ def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
     for i in tri_counts.keys():
         last_two = i[1:]
         first_two = i[:-1]
-        uni_key = i[2]
+        uni_key = i[1]
         if bi_counts[first_two] > 0:
             p_tri = tri_counts[i]/bi_counts[first_two]
         else:
@@ -366,6 +369,7 @@ def generate_from_LM_v2(model,map, k):
             next_char = thirds[idx[0]]
             sentence += next_char
             cnt += 1
+        seq += sentence
         return seq
 
 '''
@@ -395,17 +399,30 @@ def get_perplexity(model, testfile, flag):
         fo.close()
     else:
         lines = testfile
-    # calculate the log probability of each line and sum them up
+    # calculate the perplexity of each line and sum them up
+    pp = 0
     for line in lines:
         if flag == 0:
             line = preprocess_line(line)
-        cnt += 1
         logp = get_sequence_log_prob(model, line)
-        logsum += logp
-    # get cross entropy
-    cross_entropy = -logsum / cnt
-    # get perplexity of whole test paragraph
-    pp = np.exp2(cross_entropy)
+        # get cross entropy
+        cross_entropy = -logp / len(line)
+        # get perplexity of this line
+        pp += np.exp2(cross_entropy)
+
+    # calculate the perplexity of whole text
+    # logp = 0
+    # cnt = 0
+    # for line in lines:
+    #     if flag == 0:
+    #         line = preprocess_line(line)
+    #     logp += get_sequence_log_prob(model, line)
+    #     cnt += len(line)
+    # # get cross entropy
+    # cross_entropy = -logp / cnt
+    # # get perplexity of this line
+    # pp = np.exp2(cross_entropy)
+
     return pp
 
 '''
@@ -485,22 +502,29 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
     random.seed(1) # fix random seed
     # infile = "training.en"
-    adjcent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list\
+    train_list, adjcent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list\
         = read_and_store(infile, [0.8, 0.1, 0.1])
     full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
     # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
-    print ("Our model:",get_perplexity(best_model, test_list, flag=1))
     write_back_prob("outfile.txt", best_model)
     model = read_model("model-br.en")
-    print("Given model:",get_perplexity(model, test_list, flag=1))
+
+
+    print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
+    print("Given model in train set:", get_perplexity(model, train_list, flag=1))
+    print("=======================================")
+    print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
+    print("Given model in test set:", get_perplexity(model, test_list, flag=1))
+    print("=======================================")
     print("Our model in test file:", get_perplexity(best_model, "test", flag=0))
     print("Given model in test file:", get_perplexity(model, "test", flag=0))
     # #seq = generate_from_LM(best_model, 300)
-    # for i in range(50):
-    #     seq = generate_from_LM_v2(best_model, adjcent_map, 300)
-    #     seq = readable_generated_seq(seq)
-    #     print(seq,"\n")
+    print("=======================================")
+    for i in range(20):
+        seq = generate_from_LM_v2(best_model, adjcent_map, 100)
+        # seq = readable_generated_seq(seq)
+        print(seq,"\n")
     # tidied_seq = readable_generated_seq(seq)
     # print(training_model)
     # show(infile)
