@@ -44,7 +44,8 @@ def read_and_store(infile, ratios):
     # dictionary to store relation graph of third char and previous two chars
     # key (string): previous two chars e.g "an"
     # value (set): all third char
-    # adjacent_map = defaultdict(set)
+    adjacent_map = defaultdict(set)
+
     uni_counts = defaultdict(int)
 
     # validation list
@@ -66,7 +67,7 @@ def read_and_store(infile, ratios):
                     trigram = line[j:j + 3]
                     pre = line[j:j + 2]
                     uni = line[j:j + 1]
-                    # adjacent_map[pre].add(trigram[2])
+                    adjacent_map[pre].add(trigram[2])
                     tri_counts[trigram] += 1
                     bi_counts[pre] += 1
                     uni_counts[uni] += 1
@@ -83,7 +84,7 @@ def read_and_store(infile, ratios):
     #
     # del adjacent_map
 
-    return tri_counts, bi_counts, uni_counts, validation_list, test_list
+    return adjacent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list
 
 """
 Inserts missing trigrams and assigns all impossible combinations to <UNK>
@@ -291,26 +292,81 @@ Task 4: Generate a random sequence of length k character by character.
 @:param k: the size of output sequence
 @:return: a random string sequence
 '''
+def generate_from_LM(lmodel, k):
 
+    if k % 3 != 0:
+        raise Exception("Character size k cannot be divided by 3")
+    else:
+        # As noted elsewhere, the ordering of keys and values accessed from
+        # a dictionary is arbitrary. However we are guaranteed that keys()
+        # and values() will use the *same* ordering, as long as we have not
+        # modified the dictionary in between calling them.
+        outcomes = np.array(list(lmodel.keys()))
+        # normalize the probability distribution to 0-1
+        total = sum(lmodel.values())
+        alist = [a/total for a in lmodel.values()]
+        probs = np.array(alist)
 
-def generate_from_LM_v2(model, k):
+        # make an array with the cumulative sum of probabilities at each
+        # index (ie prob. mass func)
+        bins = np.cumsum(probs)
+        # create N random #s from 0-1
+        # digitize tells us which bin they fall into.
+        idx = np.digitize(np.random.random_sample(int(k/3)), bins)
+        # return the sequence of outcomes associated with that sequence of bins
+        seq = ""
+        for i in list(outcomes[idx]):
+            seq += i
+        return seq
+
+# def generate_from_LM_v2(model, k):
+#     if k < 3:
+#         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
+#     else:
+#         list_seq = ["##"]
+#         while k > 0:
+#             for entry in model.keys():
+#                 if model.keys()[:1] == list_seq[-2:]:
+#                     context_dict[entry[2]] = model[entry]
+#                 outcome = np.array(list(context_dict.keys()))
+#                 prob = np.array(list(context_dict.values()))
+#                 next_char = np.random.choice(outcome, p = prob)
+#                 list_seq.append(next_char)
+#                 context_dict.clear()
+#             k = k-1
+#         sequence = ''.join(list_seq)
+#         return sequence
+
+def generate_from_LM_v2(model,map, k):
     if k < 3:
         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
     else:
-        list_seq = ["##"]
-        context_dict = {} # Create dictionary containing possible continuations of unique history associated with their probabilities (excerpt from model dictionary) with last trigram character as key
-        while k > 0:
-            for entry in model.keys():
-                if model.keys()[:1] == list_seq[-2:]:
-                    context_dict[entry[2]] = model[entry]
-                outcome = np.array(list(context_dict.keys()))
-                prob = np.array(list(context_dict.values()))
-                next_char = np.random.choice(outcome, p = prob)
-                list_seq.append(next_char)
-                context_dict.clear()
-            k = k-1
-        sequence = ''.join(list_seq)
-        return sequence
+        seq = ""
+        sentence = "##"
+        cnt = 0
+        while cnt < k:
+            prev2 = sentence[-2:]
+            thirds = list(map[prev2])
+            probs = [model[prev2+ch] for ch in thirds]
+            total = sum(probs)
+            alist = [a / total for a in probs]
+            probs = np.array(alist)
+            bins = np.cumsum(probs)
+            # if bins is zero, it means no following char and might be a finished sentence.
+            # We restart the generator again
+            if len(bins) == 0:
+                seq += sentence
+                stop = sentence[-1]
+                sentence = "##"
+                # since # is only an auxiliary char, we roll back our cnt
+                if stop == "#":
+                    cnt -= 1
+                continue
+            idx = np.digitize(np.random.random_sample(1), bins)
+            next_char = thirds[idx[0]]
+            sentence += next_char
+            cnt += 1
+        return seq
 
 '''
 Make the generated sequence easier to read by removing non-character #
@@ -427,9 +483,10 @@ if __name__ == '__main__':
         sys.exit(1)
 
     infile = sys.argv[1]  # get input argument: the training file
-    random.seed(1)
+    random.seed(1) # fix random seed
     # infile = "training.en"
-    tri_counts, bi_counts, uni_counts, validation_list, test_list = read_and_store(infile, [0.8, 0.1, 0.1])
+    adjcent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list\
+        = read_and_store(infile, [0.8, 0.1, 0.1])
     full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
     # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
@@ -438,7 +495,10 @@ if __name__ == '__main__':
     model = read_model("model-br.en")
     print("Given model:",get_perplexity(model, test_list, flag=1))
     # #seq = generate_from_LM(best_model, 300)
-    seq = generate_from_LM_v2(best_model, 300)
+    for i in range(50):
+        seq = generate_from_LM_v2(best_model, adjcent_map, 300)
+        seq = readable_generated_seq(seq)
+        print(seq,"\n")
     # tidied_seq = readable_generated_seq(seq)
     # print(training_model)
     # show(infile)
