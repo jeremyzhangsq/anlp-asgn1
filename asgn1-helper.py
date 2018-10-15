@@ -158,36 +158,19 @@ def preprocess_line(line):
     line = "##"+line.lower()[:-1]+"#"  # add character'##' to specify start and # to specify stop
     return line
 
-'''
-Task 3: Estimate trigram probabilities by trigram count in training set. 
-Store probabilities into global dictionary 'train_model'
-The calculation formula is lec6, slide 13:
-
-P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
-where alpha is a tunable smoothing parameter, and v is the size of
-@:param tri_cnts: a dictionary containing all tri-gram counts
-@:param bi_cnts: a dictionary containing all bi-gram counts
-@:param alpha: smoothing parameter alpha
-@:return: language model
-'''
-def add_alpha_estimate(tri_cnts, bi_cnts, alpha):
-    model = defaultdict(float)
-    for k in tri_counts:
-        pre = bi_cnts[k[:-1]]
-        tri = tri_cnts[k]
-        model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
-    return model
-
 
 '''
 Normalize given model such that the sum of probability is 1. Add all missing items to dictionaries even if not possible.
 @:param model: the distribution of model
 @:return: the normalized distribution
 '''
-def normalize_model(model):
-    total = sum(model.values())
-    for k in model:
-        model[k] = model[k] / total
+def normalize_model(model, adj_map):
+    for bi in adj_map:
+        total = 0
+        for t in adj_map[bi]:
+            total += model[bi+t]
+        for t in adj_map[bi]:
+            model[bi+t] /= total
     return model
 
 '''
@@ -216,6 +199,52 @@ def read_model(infile):
             model[trigram] = prob
             adj_map[trigram[:-1]].add(trigram[2])
     return model, adj_map
+
+
+'''
+Task 3: Estimate trigram probabilities by trigram count in training set. 
+Store probabilities into global dictionary 'train_model'
+The calculation formula is lec6, slide 13:
+
+P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
+where alpha is a tunable smoothing parameter, and v is the size of
+@:param tri_cnts: a dictionary containing all tri-gram counts
+@:param bi_cnts: a dictionary containing all bi-gram counts
+@:param alpha: smoothing parameter alpha
+@:return: language model
+'''
+def add_alpha_estimate( tri_cnts, bi_cnts, alpha):
+    model = defaultdict(float)
+    for k in tri_counts:
+        pre = bi_cnts[k[:-1]]
+        tri = tri_cnts[k]
+        model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
+    return model
+
+'''
+Try different alpha and return the language model with least perplexity
+@:param tri_cnts: a dictionary containing all tri-gram counts
+@:param bi_cnts: a dictionary containing all bi-gram counts
+@:param validation_set: list of lines for validation
+@:return best_alpha, best_perplexity, best_model
+'''
+def adding_alpha_training_LM(adj_map, tri_counts, bi_counts, validation_set):
+
+    best_alpha = 0
+    best_perplexity = np.inf
+    best_model = -1
+    for a in np.arange(0.01, 1, 0.01):
+        training_model = add_alpha_estimate(tri_counts, bi_counts, alpha=a)
+        cur = get_perplexity(training_model, validation_set, flag=1)
+        print("alpha:",round(a,2),"perplexity:",cur)
+        if cur < best_perplexity:
+            best_alpha = a
+            best_perplexity = cur
+            best_model = training_model
+
+    print("======================best===========================")
+    print("alpha:", round(best_alpha, 2), "perplexity:", best_perplexity)
+    return best_alpha, best_perplexity, normalize_model(best_model, adj_map)
 
 
 """
@@ -247,7 +276,6 @@ def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
             p_bi = 0
         p_uni = uni_counts[uni_key] / total
         val = lam1*p_tri+lam2*p_bi+lam3*p_uni
-
         model[i] = val
     return model
 
@@ -261,7 +289,7 @@ Find the best values for interpolation parameters lambda1, lambda2, lambda3.
 """
 
 
-def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list):
+def interpolation_training_LM(adj_map, tri_counts, bi_counts, uni_counts, validation_list):
 
     l1 = np.arange(0, 1, 0.1)
     l2 = np.arange(0, 1, 0.1)
@@ -285,7 +313,7 @@ def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list
     print("======================best===========================")
     print("lam1:", round(best_lam1, 2), "lam2:", round(best_lam2, 2), "lam3:", round(best_lam3, 2), "perplexity:",
           best_perplexity)
-    return best_lam1, best_lam2, best_lam3, best_perplexity, best_model
+    return best_lam1, best_lam2, best_lam3, best_perplexity, normalize_model(best_model, adjcent_map)
 
 
 '''
@@ -321,23 +349,6 @@ def generate_from_LM(lmodel, k):
             seq += i
         return seq
 
-# def generate_from_LM_random(model, k):
-#     if k < 3:
-#         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
-#     else:
-#         list_seq = ["##"]
-#         while k > 0:
-#             for entry in model.keys():
-#                 if model.keys()[:1] == list_seq[-2:]:
-#                     context_dict[entry[2]] = model[entry]
-#                 outcome = np.array(list(context_dict.keys()))
-#                 prob = np.array(list(context_dict.values()))
-#                 next_char = np.random.choice(outcome, p = prob)
-#                 list_seq.append(next_char)
-#                 context_dict.clear()
-#             k = k-1
-#         sequence = ''.join(list_seq)
-#         return sequence
 
 '''
 select next char based on previous two,
@@ -552,31 +563,6 @@ def get_sequence_log_prob(model, line):
     return p
 
 
-'''
-Try different alpha and return the language model with least perplexity
-@:param tri_cnts: a dictionary containing all tri-gram counts
-@:param bi_cnts: a dictionary containing all bi-gram counts
-@:param validation_set: list of lines for validation
-@:return best_alpha, best_perplexity, best_model
-'''
-def adding_alpha_training_LM(tri_counts, bi_counts, validation_set):
-
-    best_alpha = 0
-    best_perplexity = np.inf
-    best_model = -1
-    for a in np.arange(0.01, 1, 0.01):
-        training_model = add_alpha_estimate(tri_counts, bi_counts, alpha=a)
-        cur = get_perplexity(training_model, validation_set, flag=1)
-        print("alpha:",round(a,2),"perplexity:",cur)
-        if cur < best_perplexity:
-            best_alpha = a
-            best_perplexity = cur
-            best_model = training_model
-
-    print("======================best===========================")
-    print("alpha:", round(best_alpha, 2), "perplexity:", best_perplexity)
-    return best_alpha, best_perplexity, best_model
-
 
 
 '''
@@ -611,13 +597,15 @@ if __name__ == '__main__':
         sys.exit(1)
 
     infile = sys.argv[1]  # get input argument: the training file
-    # random.seed(1) # fix random seed
+    random.seed(1) # fix random seed
     # infile = "training.en"
     train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list\
         = read_and_store(infile, [0.8, 0.1, 0.1])
-    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
-    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
-    best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
+    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts\
+        = missing_items(tri_counts, bi_counts, uni_counts)
+    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
+    best_lam1, best_lam2, best_lam3, best_perplexity, best_model\
+        = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
     model, model_map = read_model("model-br.en")
     print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
@@ -650,10 +638,12 @@ if __name__ == '__main__':
         seq = readable_generated_seq(seq)
         print("given model in generator v3:", seq)
         print("=========================")
-    # tidied_seq = readable_generated_seq(seq)
-    # print(training_model)
-    # show(infile)
 
+    cnt = 0
+    for i in adjcent_map['ng']:
+        cnt += best_model['ng'+i]
+        print('ng'+i, best_model['ng'+i])
+    print(cnt)
 
 
 
