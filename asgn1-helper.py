@@ -474,9 +474,7 @@ def generate_from_LM_rand_greedy(model, map, k):
                 sentence = "##"
                 continue
             elif prev2 == "##" or prev2[-1] == " " or prev2[-1] == ".":
-                total = sum(probs)
-                alist = [a / total for a in probs]
-                probs = np.array(alist)
+                probs = np.array(probs)
                 bins = np.cumsum(probs)
                 idx = np.digitize(np.random.random_sample(1), bins)[0]
                 next_char = thirds[idx]
@@ -625,25 +623,25 @@ if __name__ == '__main__':
         # seq = generate_from_LM_greedy(best_model, adjcent_map, 100)
         # seq = readable_generated_seq(seq)
         # print("generator v2:", seq)
-        seq = generate_from_LM_random(best_model, adjcent_map, 150)
-        seq = readable_generated_seq(seq)
-        print("our model in generator v1:", seq)
-        seq = generate_from_LM_random(model, model_map, 150)
-        seq = readable_generated_seq(seq)
-        print("given model in generator v1:", seq)
+        # seq = generate_from_LM_random(best_model, adjcent_map, 150)
+        # seq = readable_generated_seq(seq)
+        # print("our model in generator v1:", seq)
+        # seq = generate_from_LM_random(model, model_map, 150)
+        # seq = readable_generated_seq(seq)
+        # print("given model in generator v1:", seq)
         seq = generate_from_LM_rand_greedy(best_model, adjcent_map, 150)
         seq = readable_generated_seq(seq)
         print("our model in generator v3:", seq)
-        seq = generate_from_LM_rand_greedy(model, model_map, 150)
-        seq = readable_generated_seq(seq)
-        print("given model in generator v3:", seq)
-        print("=========================")
+        # seq = generate_from_LM_rand_greedy(model, model_map, 150)
+        # seq = readable_generated_seq(seq)
+        # print("given model in generator v3:", seq)
+        # print("=========================")
 
-    cnt = 0
-    for i in adjcent_map['ng']:
-        cnt += best_model['ng'+i]
-        print('ng'+i, best_model['ng'+i])
-    print(cnt)
+    # cnt = 0
+    # for i in adjcent_map['ng']:
+    #     cnt += best_model['ng'+i]
+    #     print('ng'+i, best_model['ng'+i])
+    # print(cnt)
 
 
 
