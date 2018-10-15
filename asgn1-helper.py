@@ -494,8 +494,6 @@ def generate_from_LM_rand_greedy(model, map, k):
                         break
                 p = random.sample(idxs, 1)[0]
                 next_char = prob_char[p]
-            if prev2[-1] == ' ' and next_char == 'x':
-                print("xixi")
             sentence += next_char
             cnt += 1
         seq += sentence
@@ -626,7 +624,7 @@ if __name__ == '__main__':
     # # #seq = generate_from_LM(best_model, 300)
     # print("=======================================")
     best_model, adjcent_map = read_model("outfile.txt")
-    for i in range(50000):
+    for i in range(50):
         # seq = generate_from_LM_random(best_model, adjcent_map, 100)
         # seq = readable_generated_seq(seq)
         # print("generator v1:", seq)
