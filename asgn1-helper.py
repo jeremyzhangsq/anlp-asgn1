@@ -322,7 +322,7 @@ def generate_from_LM(lmodel, k):
             seq += i
         return seq
 
-# def generate_from_LM_restart(model, k):
+# def generate_from_LM_random(model, k):
 #     if k < 3:
 #         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
 #     else:
@@ -345,7 +345,7 @@ select next char based on previous two,
 the higher prob of next char, the higher prob to be select as next,
 restart generator while meeting stop mark #.
 '''
-def generate_from_LM_restart(model,map, k):
+def generate_from_LM_random(model,map, k):
     if k < 3:
         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
     else:
@@ -408,6 +408,81 @@ def generate_from_LM_pr(model,map, k, alpha):
         seq += sentence
         return seq
 
+'''
+select best next char based on previous two, randomly break tie
+restart generator while meeting stop mark #.
+'''
+def generate_from_LM_greedy(model,map, k):
+    if k < 3:
+        raise Exception("Please specify a sequence of at least three characters.") # Not needed?
+    else:
+        seq = ""
+        sentence = "##"
+        cnt = 0
+        while cnt < k:
+            prev2 = sentence[-2:]
+            thirds = list(map[prev2])
+            probs = [model[prev2+ch] for ch in thirds]
+            prob_char = dict(zip(probs, thirds))
+            probs = sorted(probs,reverse=True)
+            idxs = []
+            for i, p in enumerate(probs):
+                if p == probs[0]:
+                    idxs.append(i)
+                else:
+                    break
+            idx = random.sample(idxs, 1)[0]
+            next_char = prob_char[probs[idx]]
+
+            sentence += next_char
+            cnt += 1
+        seq += sentence
+        return seq
+
+
+'''
+apply both random and greedy method to generate sequence
+category for trigram: connector trigram and inner trigram
+e.g., in 'this is a book', 'thi' is inner and 's i' is connector.
+We randomly select connector based on LM distribution and generate inner(word) by greedy algorithm
+'''
+
+
+def generate_from_LM_rand_greedy(model, map, k):
+    if k < 3:
+        raise Exception("Please specify a sequence of at least three characters.")  # Not needed?
+    else:
+        seq = ""
+        sentence = "##"
+        cnt = 0
+        while cnt < k:
+            prev2 = sentence[-2:]
+            thirds = list(map[prev2])
+            probs = [model[prev2 + ch] for ch in thirds]
+            if len(thirds) == 0:
+                seq += sentence
+                sentence = "##"
+                continue
+            elif prev2 == "##" or prev2[-1] == " " or prev2[-1] == ".":
+                total = sum(probs)
+                alist = [a / total for a in probs]
+                probs = np.array(alist)
+                bins = np.cumsum(probs)
+                idx = np.digitize(np.random.random_sample(1), bins)[0]
+                next_char = thirds[idx]
+                if next_char == ".":
+                    sentence += next_char
+                    seq += sentence
+                    sentence = "##"
+                    continue
+            else:
+                prob_char = dict(zip(probs, thirds))
+                p = sorted(probs, reverse=True)[0]
+                next_char = prob_char[p]
+            sentence += next_char
+            cnt += 1
+        seq += sentence
+        return seq
 
 '''
 Make the generated sequence easier to read by removing non-character #
@@ -557,9 +632,16 @@ if __name__ == '__main__':
     # #seq = generate_from_LM(best_model, 300)
     print("=======================================")
     for i in range(5):
-        seq = generate_from_LM_restart(best_model, adjcent_map, 300)
+        seq = generate_from_LM_random(best_model, adjcent_map, 100)
         seq = readable_generated_seq(seq)
-        print(seq,"\n")
+        print("generator v1:", seq)
+        seq = generate_from_LM_greedy(best_model, adjcent_map, 100)
+        seq = readable_generated_seq(seq)
+        print("generator v2:", seq)
+        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, 100)
+        seq = readable_generated_seq(seq)
+        print("generator v3:", seq)
+        print("=========================")
     # tidied_seq = readable_generated_seq(seq)
     # print(training_model)
     # show(infile)
