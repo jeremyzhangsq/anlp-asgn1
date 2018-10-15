@@ -44,7 +44,7 @@ def read_and_store(infile, ratios):
     # dictionary to store relation graph of third char and previous two chars
     # key (string): previous two chars e.g "an"
     # value (set): all third char
-    adjacent_map = defaultdict(set)
+    # adjacent_map = defaultdict(set)
 
     uni_counts = defaultdict(int)
 
@@ -70,7 +70,7 @@ def read_and_store(infile, ratios):
                     trigram = line[j:j + 3]
                     pre = line[j:j + 2]
                     uni = line[j:j + 1]
-                    adjacent_map[pre].add(trigram[2])
+                    # adjacent_map[pre].add(trigram[2])
                     tri_counts[trigram] += 1
                     bi_counts[pre] += 1
                     uni_counts[uni] += 1
@@ -81,13 +81,8 @@ def read_and_store(infile, ratios):
             else:
                 test_list.append(line)
 
-    # new_map = defaultdict(list)
-    # for key in adjacent_map:
-    #     new_map[key] = list(adjacent_map[key])
-    #
-    # del adjacent_map
 
-    return train_list, adjacent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list
+    return train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list
 
 """
 Inserts missing trigrams and assigns all impossible combinations to <UNK>
@@ -139,8 +134,10 @@ def missing_items (tri_counts, bi_counts, uni_counts):
                 tri_counts["<UNK>"] += 1
                 bi_counts["<UNK>"] += 1
                 uni_counts["<UNK>"] += 1
-
-    return tri_counts, bi_counts, uni_counts
+    adj_map = defaultdict(set)
+    for i in tri_counts:
+        adj_map[i[:-1]].add(i[2])
+    return adj_map, tri_counts, bi_counts, uni_counts
 
 '''
 Task 1: removing unnecessary characters from each line
@@ -616,9 +613,9 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
     # random.seed(1) # fix random seed
     # infile = "training.en"
-    train_list, adjcent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list\
+    train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list\
         = read_and_store(infile, [0.8, 0.1, 0.1])
-    full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
+    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
     # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
