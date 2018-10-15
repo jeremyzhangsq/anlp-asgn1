@@ -7,6 +7,7 @@ import numpy as np
 from collections import defaultdict
 import itertools
 import string
+import matplotlib.pyplot as plt
 '''
 ============================================================
 variable declaration part
@@ -109,16 +110,18 @@ def missing_items (tri_counts, bi_counts, uni_counts):
         combo = "".join(list(combo))
         all_combs_tri_list.append(combo)
 
-    sonority_constraint1 = ["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r", "t", "x"]
-    sonority_constraint2 = ["b", "d", "g", "p", "t", "k", "q", "x"] # Stops and affricates
-    impossible_comb = []
-    for char1 in sonority_constraint1:
-        for char2 in sonority_constraint2:
-            impossible_comb.extend(["#", char1, char2])
-            impossible_comb.extend([char2, char1, "#"])
+    #sonority_constraint1 = ["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r", "t", "x"]
+    #sonority_constraint2 = ["b", "d", "g", "p", "t", "k", "q", "x"] # Stops and affricates
+    #impossible_comb = []
+    #for char1 in sonority_constraint1:
+     #   for char2 in sonority_constraint2:
+      #      impossible_comb.append(tuple(["#", char1, char2]))
+       #     impossible_comb.append(tuple([" ", char1, char2]))
+        #    impossible_comb.append(tuple([char2, char1, "#"]))
+         #   impossible_comb.append(tuple([char2, char1, " "]))
 
-    non_letter_comb = itertools.product(all_nonletters, repeat=3)
-    impossible_comb.append(non_letter_comb)
+    #non_letter_comb = itertools.product(all_nonletters, repeat=3)
+    #impossible_comb.append(non_letter_comb)
 
     for i in all_combs_bi_list:
         if i not in bi_counts.keys():
@@ -128,39 +131,43 @@ def missing_items (tri_counts, bi_counts, uni_counts):
             uni_counts[j] = 0
     for k in all_combs_tri_list:
         if k not in tri_counts:
-            if k not in impossible_comb:
-                tri_counts[k] = 0
-            else:
-                tri_counts["<UNK>"] += 1
-                bi_counts["<UNK>"] += 1
-                uni_counts["<UNK>"] += 1
+            #if k not in impossible_comb:
+            tri_counts[k] = 0
+            #else:
+             #   tri_counts["<UNK>"] += 1
+              #  bi_counts["<UNK>"] += 1
+               # uni_counts["<UNK>"] += 1
     adj_map = defaultdict(set)
     for i in tri_counts:
         adj_map[i[:-1]].add(i[2])
     return adj_map, tri_counts, bi_counts, uni_counts
 
 '''
-Task 1: removing unnecessary characters from each line
-@:param line: a line of string from input file
-@:return: a new line only with English alphabet, space, digits and dot character.
+Task 1: Treating each line as separate sequence, remove all letters that are not in the English alphabet, 
+all punctuation except '.', convert all digits to '0' and lowercase the whole line. 
+Extra steps taken not specified in task: 
+Remove excess white spaces and abbreviations.
+@:param line: A line of string from the input file.
+@:return: Modified line containing only lowercase characters found in the English alphabet, 
+white spaces, 0, dot character and line start and stop markers. 
 '''
 def preprocess_line(line):
     rule = re.compile("[^\s.A-Za-z0-9]")
-    # newline with only digit, alphabet, space and dot.
+    # new line with only digit, English alphabet, white space and dot
     line = rule.sub('', line)
-    # replace excess number of white spaces with one white space
+    # replace excess number of whitespaces with one white space
     line = re.sub('\s{2,}', ' ', line)
-    # Remove abbreviations enclosed by whitespace (substitue with whitespace)
+    # Remove abbreviations enclosed by whitespace (substitute with whitespace)
     line = re.sub('\s[A-Z]{2,}\s', ' ', line)
-    # Remove abbreviations that precede all punctuation (substitute with .)
+    # Remove abbreviations that precede all punctuation (substitute with dot)
     line = re.sub("\s([A-Z]{2,}).", '.', line)
     line = re.sub("[0-9]{1,}", "0", line)  # replace 1-9 with 0
-    line = "##"+line.lower()[:-1]+"#"  # add character'##' to specify start and # to specify stop
+    line = "##"+line.lower()[:-1]+"#"  # add '##' to specify start and '#' to specify stop of line
     return line
 
 
 '''
-Normalize given model such that the sum of probability is 1. Add all missing items to dictionaries even if not possible.
+Normalize given model such that the sum of probability is 1. Add all missing items to dictionaries.
 @:param model: the distribution of model
 @:return: the normalized distribution
 '''
@@ -581,7 +588,59 @@ def show(infile):
         print(tri_count[0], ": ", str(tri_count[1]))
 
 
+'''
+Excerpt from our model displaying all ng* combinations and their associated probabilities
+@:param best_model: our language model
+@:return ng_dict: 
+'''
+def ng_excerpt (best_model):
 
+    ng_dict = defaultdict(float)
+    for key in best_model.keys():
+        if key[0] == "n":
+            if key[1] == "g":
+                ng_dict[key] = best_model[key]
+        continue
+    return ng_dict
+'''
+Sorting ng_dict
+'''
+
+def sorted_ng(ng_dict):
+    for key, value in sorted(ng_dict.items()):
+        print (key, value)
+
+'''
+Plot ng* probabilities 
+'''
+def ng_bars (ng_dict):
+    x = []
+    y = []
+    dictlist = []
+    for key, value in ng_dict.items():
+        dictlist.append([value, key])
+        dictlist.sort(reverse=True)
+    for i in range(len(dictlist)):
+        x.append(dictlist[i][1])
+        y.append(dictlist[i][0])
+    plt.bar(x,y)
+
+
+'''
+Some example code that prints out the counts. For small input files
+the counts are easy to look at but for larger files you can redirect
+to an output file (see Lab 1).
+@:param param1: input file name 
+@:return void
+'''
+
+def show(infile):
+    print("Trigram counts in ", infile, ", sorted alphabetically:")
+    for trigram in sorted(tri_counts.keys()):
+        print(trigram, ": ", tri_counts[trigram])
+    print("Trigram counts in ", infile, ", sorted numerically:")
+    for tri_count in sorted(tri_counts.items(), key=lambda x: x[1], reverse=True):
+        print(tri_count[0], ": ", str(tri_count[1]))
 
 '''
 ============================================================
@@ -592,22 +651,32 @@ if __name__ == '__main__':
 
     # here we make sure the user provides a training filename when
     # calling this program, otherwise exit with a usage error.
-    if len(sys.argv) != 2:
-        print("Usage: ", sys.argv[0], "<training_file>")
-        sys.exit(1)
+    # if len(sys.argv) != 2:
+      #  print("Usage: ", sys.argv[0], "<training_file>")
+       # sys.exit(1)
 
-    infile = sys.argv[1]  # get input argument: the training file
+    #infile = sys.argv[1]  # get input argument: the training file
     random.seed(1) # fix random seed
-    # infile = "training.en"
+    infile = "training.en"
     train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list\
         = read_and_store(infile, [0.8, 0.1, 0.1])
-    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts\
-        = missing_items(tri_counts, bi_counts, uni_counts)
+    #adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts\
+     #   = missing_items(tri_counts, bi_counts, uni_counts)
     # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
-    best_lam1, best_lam2, best_lam3, best_perplexity, best_model\
-        = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
+    #best_lam1, best_lam2, best_lam3, best_perplexity, best_model\
+     #   = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
+
+    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts \
+        = missing_items(tri_counts, bi_counts, uni_counts)
+    best_lam1, best_lam2, best_lam3, best_perplexity, best_model \
+        = interpolation_training_LM(adjcent_map, tri_counts, bi_counts, uni_counts, validation_list)
+
     write_back_prob("outfile.txt", best_model)
+    ng_dict = ng_excerpt(best_model)
+    sorted_ng(ng_dict)
+    ng_plot = ng_bars(ng_dict)
     model, model_map = read_model("model-br.en")
+    #ng_bars(model)
     print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
     print("Given model in train set:", get_perplexity(model, train_list, flag=1))
     print("=======================================")
