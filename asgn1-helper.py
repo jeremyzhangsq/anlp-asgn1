@@ -322,7 +322,7 @@ def generate_from_LM(lmodel, k):
             seq += i
         return seq
 
-# def generate_from_LM_v2(model, k):
+# def generate_from_LM_restart(model, k):
 #     if k < 3:
 #         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
 #     else:
@@ -340,7 +340,12 @@ def generate_from_LM(lmodel, k):
 #         sequence = ''.join(list_seq)
 #         return sequence
 
-def generate_from_LM_v2(model,map, k):
+'''
+select next char based on previous two,
+the higher prob of next char, the higher prob to be select as next,
+restart generator while meeting stop mark #.
+'''
+def generate_from_LM_restart(model,map, k):
     if k < 3:
         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
     else:
@@ -357,7 +362,7 @@ def generate_from_LM_v2(model,map, k):
             bins = np.cumsum(probs)
             # if bins is zero, it means no following char and might be a finished sentence.
             # We restart the generator again
-            if len(bins) == 0:
+            if len(bins) == 0 or prev2[-1] == ".":
                 seq += sentence
                 stop = sentence[-1]
                 sentence = "##"
@@ -371,6 +376,38 @@ def generate_from_LM_v2(model,map, k):
             cnt += 1
         seq += sentence
         return seq
+
+'''
+select next char based on previous two,
+the higher prob of next char, the higher prob to be select as next,
+apply the idea of page rank.
+'''
+def generate_from_LM_pr(model,map, k, alpha):
+    if k < 3:
+        raise Exception("Please specify a sequence of at least three characters.") # Not needed?
+    else:
+        seq = ""
+        sentence = "##"
+        cnt = 0
+        while cnt < k:
+            prev2 = sentence[-2:]
+            thirds = list(map[prev2])
+            probs = [model[prev2+ch] for ch in thirds]
+            total = sum(probs)
+            alist = [a / total for a in probs]
+            probs = np.array(alist)
+            bins = np.cumsum(probs)
+            if random.random() < alpha and len(bins) > 0:
+                idx = np.digitize(np.random.random_sample(1), bins)[0]
+                next_char = thirds[idx]
+            else:
+                idx = random.randint(0, len(model)-1)
+                next_char = list(model.keys())[idx]
+            sentence += next_char
+            cnt += 1
+        seq += sentence
+        return seq
+
 
 '''
 Make the generated sequence easier to read by removing non-character #
@@ -509,8 +546,6 @@ if __name__ == '__main__':
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
     model = read_model("model-br.en")
-
-
     print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
     print("Given model in train set:", get_perplexity(model, train_list, flag=1))
     print("=======================================")
@@ -521,8 +556,8 @@ if __name__ == '__main__':
     print("Given model in test file:", get_perplexity(model, "test", flag=0))
     # #seq = generate_from_LM(best_model, 300)
     print("=======================================")
-    for i in range(20):
-        seq = generate_from_LM_v2(best_model, adjcent_map, 300)
+    for i in range(5):
+        seq = generate_from_LM_restart(best_model, adjcent_map, 300)
         seq = readable_generated_seq(seq)
         print(seq,"\n")
     # tidied_seq = readable_generated_seq(seq)
