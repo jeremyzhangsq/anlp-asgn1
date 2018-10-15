@@ -484,16 +484,12 @@ def generate_from_LM_rand_greedy(model, map, k):
                     sentence = "##"
                     continue
             else:
-                prob_char = dict(zip(probs, thirds))
-                alist = sorted(probs, reverse=True)
-                idxs = []
-                for i in alist:
-                    if i == alist[0]:
-                        idxs.append(i)
-                    else:
-                        break
-                p = random.sample(idxs, 1)[0]
-                next_char = prob_char[p]
+                prob_char = defaultdict(set)
+                for i in range(len(probs)):
+                    prob_char[probs[i]].add(thirds[i])
+                alist = sorted(prob_char.keys(), reverse=True)
+                idxs = prob_char[alist[0]]
+                next_char = random.sample(idxs, 1)[0]
             sentence += next_char
             cnt += 1
         seq += sentence
@@ -604,27 +600,27 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
     random.seed(1) # fix random seed
     # infile = "training.en"
-    # train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list\
-    #     = read_and_store(infile, [0.8, 0.1, 0.1])
-    # adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts\
-    #     = missing_items(tri_counts, bi_counts, uni_counts)
-    # # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
-    # best_lam1, best_lam2, best_lam3, best_perplexity, best_model\
-    #     = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
-    # write_back_prob("outfile.txt", best_model)
-    # model, model_map = read_model("model-br.en")
-    # print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
-    # print("Given model in train set:", get_perplexity(model, train_list, flag=1))
-    # print("=======================================")
-    # print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
-    # print("Given model in test set:", get_perplexity(model, test_list, flag=1))
-    # print("=======================================")
-    # print("Our model in test file:", get_perplexity(best_model, "test", flag=0))
-    # print("Given model in test file:", get_perplexity(model, "test", flag=0))
-    # # #seq = generate_from_LM(best_model, 300)
-    # print("=======================================")
-    best_model, adjcent_map = read_model("outfile.txt")
-    for i in range(50):
+    train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list\
+        = read_and_store(infile, [0.8, 0.1, 0.1])
+    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts\
+        = missing_items(tri_counts, bi_counts, uni_counts)
+    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
+    best_lam1, best_lam2, best_lam3, best_perplexity, best_model\
+        = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
+    write_back_prob("outfile.txt", best_model)
+    model, model_map = read_model("model-br.en")
+    print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
+    print("Given model in train set:", get_perplexity(model, train_list, flag=1))
+    print("=======================================")
+    print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
+    print("Given model in test set:", get_perplexity(model, test_list, flag=1))
+    print("=======================================")
+    print("Our model in test file:", get_perplexity(best_model, "test", flag=0))
+    print("Given model in test file:", get_perplexity(model, "test", flag=0))
+    # #seq = generate_from_LM(best_model, 300)
+    print("=======================================")
+    # best_model, adjcent_map = read_model("outfile.txt")
+    for i in range(5):
         # seq = generate_from_LM_random(best_model, adjcent_map, 100)
         # seq = readable_generated_seq(seq)
         # print("generator v1:", seq)
