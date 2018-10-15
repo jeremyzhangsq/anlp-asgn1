@@ -4,6 +4,9 @@ import sys
 import random
 from math import log
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from collections import defaultdict
 import itertools
 import string
@@ -609,9 +612,6 @@ if __name__ == '__main__':
         = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
     model, model_map = read_model("model-br.en")
-    print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
-    print("Given model in train set:", get_perplexity(model, train_list, flag=1))
-    print("=======================================")
     print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
     print("Given model in test set:", get_perplexity(model, test_list, flag=1))
     print("=======================================")
