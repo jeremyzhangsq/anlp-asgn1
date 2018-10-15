@@ -211,12 +211,14 @@ Read model from file and store into a dictionary
 '''
 def read_model(infile):
     model = defaultdict(float)
+    adj_map = defaultdict(set)
     with open(infile) as f:
         for line in f:
             trigram, prob = line.split('\t')
             prob = float(prob.split('\n')[0])
             model[trigram] = prob
-    return model
+            adj_map[trigram[:-1]].add(trigram[2])
+    return model, adj_map
 
 
 """
@@ -612,7 +614,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     infile = sys.argv[1]  # get input argument: the training file
-    random.seed(1) # fix random seed
+    # random.seed(1) # fix random seed
     # infile = "training.en"
     train_list, adjcent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list\
         = read_and_store(infile, [0.8, 0.1, 0.1])
@@ -620,7 +622,7 @@ if __name__ == '__main__':
     # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
-    model = read_model("model-br.en")
+    model, model_map = read_model("model-br.en")
     print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
     print("Given model in train set:", get_perplexity(model, train_list, flag=1))
     print("=======================================")
@@ -632,15 +634,24 @@ if __name__ == '__main__':
     # #seq = generate_from_LM(best_model, 300)
     print("=======================================")
     for i in range(5):
-        seq = generate_from_LM_random(best_model, adjcent_map, 100)
+        # seq = generate_from_LM_random(best_model, adjcent_map, 100)
+        # seq = readable_generated_seq(seq)
+        # print("generator v1:", seq)
+        # seq = generate_from_LM_greedy(best_model, adjcent_map, 100)
+        # seq = readable_generated_seq(seq)
+        # print("generator v2:", seq)
+        seq = generate_from_LM_random(best_model, adjcent_map, 150)
         seq = readable_generated_seq(seq)
-        print("generator v1:", seq)
-        seq = generate_from_LM_greedy(best_model, adjcent_map, 100)
+        print("our model in generator v1:", seq)
+        seq = generate_from_LM_random(model, model_map, 150)
         seq = readable_generated_seq(seq)
-        print("generator v2:", seq)
-        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, 100)
+        print("given model in generator v1:", seq)
+        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, 150)
         seq = readable_generated_seq(seq)
-        print("generator v3:", seq)
+        print("our model in generator v3:", seq)
+        seq = generate_from_LM_rand_greedy(model, model_map, 150)
+        seq = readable_generated_seq(seq)
+        print("given model in generator v3:", seq)
         print("=========================")
     # tidied_seq = readable_generated_seq(seq)
     # print(training_model)
