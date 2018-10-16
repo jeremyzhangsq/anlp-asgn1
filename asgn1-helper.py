@@ -360,16 +360,14 @@ def generate_from_LM_rand_greedy(model, map, son_map, k, sonority):
     if k < 3:
         raise Exception("Please specify a sequence of at least three characters.")
     else:
-        seq = ""
         sentence = "##"
-        cnt = 0
-        while cnt < k:
+        neat_seq = ""
+        while len(neat_seq) < k:
             prev2 = sentence[-2:]
             thirds = list(map[prev2])
             probs = [model[prev2 + ch] for ch in thirds]
             if len(thirds) == 0:
-                seq += sentence
-                sentence = "##"
+                sentence += "##"
                 continue
             # if it is a connector trigram, we random select next char according to prob
             elif prev2 == "##" or prev2[-1] == " " or prev2[-1] == ".":
@@ -377,12 +375,10 @@ def generate_from_LM_rand_greedy(model, map, son_map, k, sonority):
                 bins = np.cumsum(probs)
                 idx = np.digitize(np.random.random_sample(1), bins)[0]
                 next_char = thirds[idx]
-                # avoid repetition dot mark
-                if next_char == ".":
+                # avoid repetition dot mark and white space
+                if next_char == "." or next_char == " ":
                     sentence += next_char
-                    cnt += 1
-                    seq += sentence
-                    sentence = "##"
+                    sentence += "##"
                     continue
             else:
                 prob_char = defaultdict(set)
@@ -415,9 +411,8 @@ def generate_from_LM_rand_greedy(model, map, son_map, k, sonority):
                 # if there are more than more chars, randomly select one to break the tie
                 next_char = random.sample(idxs, 1)[0]
             sentence += next_char
-            cnt += 1
-        seq += sentence
-        return seq
+            neat_seq = readable_generated_seq(sentence)
+        return sentence
 
 
 
@@ -494,7 +489,7 @@ def show(infile):
     for tri_count in sorted(tri_counts.items(), key=lambda x: x[1], reverse=True):
         print(tri_count[0], ": ", str(tri_count[1]))
 
-def run(sonority):
+def run(infile, sonority):
 
     sonority_counts, train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list \
             = read_and_store(infile, [0.8, 0.1, 0.1], sonority)
@@ -517,7 +512,6 @@ def run(sonority):
         seq = generate_from_LM_rand_greedy(best_model, adjcent_map, sonority_counts, 300, sonority)
         seq = readable_generated_seq(seq)
         print("our model in generator v3:", seq)
-        print(len(seq))
         seq = generate_from_LM_rand_greedy(model, model_map, sonority_counts, 300, sonority)
         seq = readable_generated_seq(seq)
         print("given model in generator v3:", seq)
@@ -537,11 +531,10 @@ if __name__ == '__main__':
         sys.exit(1)
 
     infile = sys.argv[1]  # get input argument: the training file
-    random.seed(1) # fix random seed
-    # infile = "training.en"
-    run(sonority=False)
+    random.seed(1)  # fix random seed
+    run(infile=infile, sonority=False)
     print("======================Optimization: Sonority===========================")
-    run(sonority=True)
+    run(infile=infile, sonority=True)
 
 
 
