@@ -129,12 +129,12 @@ def missing_items (tri_counts, bi_counts, uni_counts):
             uni_counts[j] = 0
     for k in all_combs_tri_list:
         if k not in tri_counts:
-            #if k not in impossible_comb:
+            # if k not in impossible_comb:
             tri_counts[k] = 0
-            #else:
-             #   tri_counts["<UNK>"] += 1
-              #  bi_counts["<UNK>"] += 1
-               # uni_counts["<UNK>"] += 1
+            # else:
+            #    tri_counts["<UNK>"] += 1
+            #    bi_counts["<UNK>"] += 1
+            #    uni_counts["<UNK>"] += 1
     adj_map = defaultdict(set)
     for i in tri_counts:
         adj_map[i[:-1]].add(i[2])
