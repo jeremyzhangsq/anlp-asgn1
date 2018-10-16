@@ -85,11 +85,13 @@ def read_and_store(infile, ratios, sonority):
                     if sonority:
                         sec = 'unk'
                         fst = 'unk'
+                        # we record the bigram count for sonority
                         for son in SONORITY:
                             if line[j] in SONORITY[son]:
                                 sec = son
                             if prev_letter in SONORITY[son]:
                                 fst = son
+                        # sonority[(fst,sec)] means the count of sonority sec given sonority fst
                         key = (fst, sec)
                         sonority_count[key] += 1
                     prev_letter = line[j]
@@ -101,6 +103,7 @@ def read_and_store(infile, ratios, sonority):
             else:
                 test_list.append(line)
 
+        # normalize the distribution of sonority
         if sonority:
             total = sum(sonority_count.values())
             for son in sonority_count:
@@ -119,7 +122,9 @@ def missing_items (tri_counts, bi_counts, uni_counts):
     all_letters = list(string.ascii_lowercase)
     all_nonletters = [" ", "#", "."]
     all_letters.extend(all_nonletters)
+    # list all bigram combinations
     all_combs_bi = itertools.product(all_letters, repeat=2)
+    # list all trigram combinations
     all_combs_tri = itertools.product(all_letters, repeat=3)
 
     all_combs_bi_list = []
@@ -133,19 +138,7 @@ def missing_items (tri_counts, bi_counts, uni_counts):
         combo = "".join(list(combo))
         all_combs_tri_list.append(combo)
 
-    # sonority_constraint1 = ["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r", "t", "x"]
-    # sonority_constraint2 = ["b", "d", "g", "p", "t", "k", "q", "x"] # Stops and affricates
-    # impossible_comb = []
-    # for char1 in sonority_constraint1:
-    #    for char2 in sonority_constraint2:
-    #        impossible_comb.append(tuple(["#", char1, char2]))
-    #        impossible_comb.append(tuple([" ", char1, char2]))
-    #        impossible_comb.append(tuple([char2, char1, "#"]))
-    #        impossible_comb.append(tuple([char2, char1, " "]))
-    #
-    # non_letter_comb = itertools.product(all_nonletters, repeat=3)
-    # impossible_comb.append(non_letter_comb)
-
+    # given default value 0 for not occur trigrams
     for i in all_combs_bi_list:
         if i not in bi_counts.keys():
             bi_counts[i] = 0
@@ -154,12 +147,8 @@ def missing_items (tri_counts, bi_counts, uni_counts):
             uni_counts[j] = 0
     for k in all_combs_tri_list:
         if k not in tri_counts:
-            # if k not in impossible_comb:
             tri_counts[k] = 0
-            # else:
-            #    tri_counts["<UNK>"] += 1
-            #    bi_counts["<UNK>"] += 1
-            #    uni_counts["<UNK>"] += 1
+
     adj_map = defaultdict(set)
     for i in tri_counts:
         adj_map[i[:-1]].add(i[2])
@@ -197,8 +186,10 @@ Normalize given model such that the sum of probability is 1. Add all missing ite
 def normalize_model(model, adj_map):
     for bi in adj_map:
         total = 0
+        # get sum of p(*|bigram)
         for t in adj_map[bi]:
             total += model[bi+t]
+        # normalize
         for t in adj_map[bi]:
             model[bi+t] /= total
     return model
@@ -231,52 +222,6 @@ def read_model(infile):
     return model, adj_map
 
 
-'''
-Task 3: Estimate trigram probabilities by trigram count in training set. 
-Store probabilities into global dictionary 'train_model'
-The calculation formula is lec6, slide 13:
-
-P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
-where alpha is a tunable smoothing parameter, and v is the size of
-@:param tri_cnts: a dictionary containing all tri-gram counts
-@:param bi_cnts: a dictionary containing all bi-gram counts
-@:param alpha: smoothing parameter alpha
-@:return: language model
-'''
-def add_alpha_estimate( tri_cnts, bi_cnts, alpha):
-    model = defaultdict(float)
-    for k in tri_counts:
-        pre = bi_cnts[k[:-1]]
-        tri = tri_cnts[k]
-        model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
-    return model
-
-'''
-Try different alpha and return the language model with least perplexity
-@:param tri_cnts: a dictionary containing all tri-gram counts
-@:param bi_cnts: a dictionary containing all bi-gram counts
-@:param validation_set: list of lines for validation
-@:return best_alpha, best_perplexity, best_model
-'''
-def adding_alpha_training_LM(adj_map, tri_counts, bi_counts, validation_set):
-
-    best_alpha = 0
-    best_perplexity = np.inf
-    best_model = -1
-    for a in np.arange(0.01, 1, 0.01):
-        training_model = add_alpha_estimate(tri_counts, bi_counts, alpha=a)
-        cur = get_perplexity(training_model, validation_set, flag=1)
-        print("alpha:",round(a,2),"perplexity:",cur)
-        if cur < best_perplexity:
-            best_alpha = a
-            best_perplexity = cur
-            best_model = training_model
-
-    print("======================best===========================")
-    print("alpha:", round(best_alpha, 2), "perplexity:", best_perplexity)
-    return best_alpha, best_perplexity, normalize_model(best_model, adj_map)
-
-
 """
 Task 3: Estimate trigram probabilities using interpolation.
 @:param normalized_tri: dictionary containing the normalized distribution of trigram counts
@@ -296,14 +241,15 @@ def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
         last_two = i[1:]
         first_two = i[:-1]
         uni_key = i[1]
+        p_tri = 0
+        p_bi = 0
+        # p(w3 | w2)
         if bi_counts[first_two] > 0:
             p_tri = tri_counts[i]/bi_counts[first_two]
-        else:
-            p_tri = 0
+        # p(w3 | w1, w2)
         if uni_counts[uni_key] > 0:
             p_bi = bi_counts[last_two]/uni_counts[uni_key]
-        else:
-            p_bi = 0
+        # p(w3)
         p_uni = uni_counts[uni_key] / total
         val = lam1*p_tri+lam2*p_bi+lam3*p_uni
         model[i] = val
@@ -331,8 +277,7 @@ def interpolation_training_LM(adj_map, tri_counts, bi_counts, uni_counts, valida
                 if lam1+lam2+lam3 == 1:
                     training_model = interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3)
                     cur = get_perplexity(training_model, validation_list, flag=1)
-                    # print("lam1:", round(lam1, 2), "lam2:", round(lam2, 2), "lam3:", round(lam3, 2),
-                    #       "perplexity:", best_perplexity)
+                    # record current best
                     if cur < best_perplexity:
                         best_lam1 = lam1
                         best_lam2 = lam2
@@ -347,43 +292,15 @@ def interpolation_training_LM(adj_map, tri_counts, bi_counts, uni_counts, valida
 
 
 '''
-Task 4: Generate a random sequence of length k character by character.
-@:param lmodel: a language model stored in dictionary
-@:param k: the size of output sequence
-@:return: a random string sequence
-'''
-def generate_from_LM(lmodel, k):
-
-    if k % 3 != 0:
-        raise Exception("Character size k cannot be divided by 3")
-    else:
-        # As noted elsewhere, the ordering of keys and values accessed from
-        # a dictionary is arbitrary. However we are guaranteed that keys()
-        # and values() will use the *same* ordering, as long as we have not
-        # modified the dictionary in between calling them.
-        outcomes = np.array(list(lmodel.keys()))
-        # normalize the probability distribution to 0-1
-        total = sum(lmodel.values())
-        alist = [a/total for a in lmodel.values()]
-        probs = np.array(alist)
-
-        # make an array with the cumulative sum of probabilities at each
-        # index (ie prob. mass func)
-        bins = np.cumsum(probs)
-        # create N random #s from 0-1
-        # digitize tells us which bin they fall into.
-        idx = np.digitize(np.random.random_sample(int(k/3)), bins)
-        # return the sequence of outcomes associated with that sequence of bins
-        seq = ""
-        for i in list(outcomes[idx]):
-            seq += i
-        return seq
-
-
-'''
+Task 4 (verision 1): Generate a random sequence of length k character by character.
 select next char based on previous two,
 the higher prob of next char, the higher prob to be select as next,
 restart generator while meeting stop mark #.
+@:param model: a language model stored in dictionary
+@:param map: an adjacent map. key is bigram and value is every possible next char
+@:param k: the size of output sequence
+@:return: a random string sequence
+
 '''
 def generate_from_LM_random(model,map, k):
     if k < 3:
@@ -397,8 +314,11 @@ def generate_from_LM_random(model,map, k):
             thirds = list(map[prev2])
             probs = [model[prev2+ch] for ch in thirds]
             total = sum(probs)
+            # normalize the probability distribution to 0-1
             alist = [a / total for a in probs]
             probs = np.array(alist)
+            # make an array with the cumulative sum of probabilities at each
+            # index (ie prob. mass func)
             bins = np.cumsum(probs)
             # if bins is zero, it means no following char and might be a finished sentence.
             # We restart the generator again
@@ -410,6 +330,8 @@ def generate_from_LM_random(model,map, k):
                 if stop == "#":
                     cnt -= 1
                 continue
+
+            # digitize tells us which bin they fall into.
             idx = np.digitize(np.random.random_sample(1), bins)
             next_char = thirds[idx[0]]
             sentence += next_char
@@ -417,80 +339,26 @@ def generate_from_LM_random(model,map, k):
         seq += sentence
         return seq
 
-'''
-select next char based on previous two,
-the higher prob of next char, the higher prob to be select as next,
-apply the idea of page rank.
-'''
-def generate_from_LM_pr(model,map, k, alpha):
-    if k < 3:
-        raise Exception("Please specify a sequence of at least three characters.") # Not needed?
-    else:
-        seq = ""
-        sentence = "##"
-        cnt = 0
-        while cnt < k:
-            prev2 = sentence[-2:]
-            thirds = list(map[prev2])
-            probs = [model[prev2+ch] for ch in thirds]
-            total = sum(probs)
-            alist = [a / total for a in probs]
-            probs = np.array(alist)
-            bins = np.cumsum(probs)
-            if random.random() < alpha and len(bins) > 0:
-                idx = np.digitize(np.random.random_sample(1), bins)[0]
-                next_char = thirds[idx]
-            else:
-                idx = random.randint(0, len(model)-1)
-                next_char = list(model.keys())[idx]
-            sentence += next_char
-            cnt += 1
-        seq += sentence
-        return seq
 
 '''
-select best next char based on previous two, randomly break tie
-restart generator while meeting stop mark #.
-'''
-def generate_from_LM_greedy(model,map, k):
-    if k < 3:
-        raise Exception("Please specify a sequence of at least three characters.") # Not needed?
-    else:
-        seq = ""
-        sentence = "##"
-        cnt = 0
-        while cnt < k:
-            prev2 = sentence[-2:]
-            thirds = list(map[prev2])
-            probs = [model[prev2+ch] for ch in thirds]
-            prob_char = dict(zip(probs, thirds))
-            probs = sorted(probs,reverse=True)
-            idxs = []
-            for i, p in enumerate(probs):
-                if p == probs[0]:
-                    idxs.append(i)
-                else:
-                    break
-            idx = random.sample(idxs, 1)[0]
-            next_char = prob_char[probs[idx]]
-
-            sentence += next_char
-            cnt += 1
-        seq += sentence
-        return seq
-
-
-'''
+Task 4 (report version): Generate a random sequence of length k character by character.
 apply both random and greedy method to generate sequence
 category for trigram: connector trigram and inner trigram
 e.g., in 'this is a book', 'thi' is inner and 's i' is connector.
 We randomly select connector based on LM distribution and generate inner(word) by greedy algorithm
-'''
+Also, it support the sonority optimization for task 6
+@:param model: a language model stored in dictionary
+@:param map: an adjacent map. key is bigram and value is also possible next char
+@:param map: a sonority map. key is bigram of sonority classes and value is the probability of next sonority class given previous class
+@:param k: the size of output sequence
+@:param sonority: the sonority optimization flag
+@:return: a random string sequence
 
+'''
 
 def generate_from_LM_rand_greedy(model, map, son_map, k, sonority):
     if k < 3:
-        raise Exception("Please specify a sequence of at least three characters.")  # Not needed?
+        raise Exception("Please specify a sequence of at least three characters.")
     else:
         seq = ""
         sentence = "##"
@@ -503,22 +371,27 @@ def generate_from_LM_rand_greedy(model, map, son_map, k, sonority):
                 seq += sentence
                 sentence = "##"
                 continue
+            # if it is a connector trigram, we random select next char according to prob
             elif prev2 == "##" or prev2[-1] == " " or prev2[-1] == ".":
                 probs = np.array(probs)
                 bins = np.cumsum(probs)
                 idx = np.digitize(np.random.random_sample(1), bins)[0]
                 next_char = thirds[idx]
+                # avoid repetition dot mark
                 if next_char == ".":
                     sentence += next_char
+                    cnt += 1
                     seq += sentence
                     sentence = "##"
                     continue
             else:
                 prob_char = defaultdict(set)
                 if sonority:
+                    # optimization for task 6
                     for i in range(len(probs)):
                         fst = 'unk'
                         snd = 'unk'
+                        # identify the sonority tag for last char prev[-1] and current char third[i]
                         if str(prev2[-1]).isalpha():
                             for key in SONORITY:
                                 if prev2[-1] in SONORITY[key]:
@@ -529,14 +402,17 @@ def generate_from_LM_rand_greedy(model, map, son_map, k, sonority):
                                 if thirds[i] in SONORITY[key]:
                                     snd = key
                                     break
+                        # the final probability equals to language model probability times sonority probability
                         p = probs[i]*son_map[(fst,snd)]
                         prob_char[p].add(thirds[i])
-                    alist = sorted(prob_char.keys(), reverse=True)
+
                 else:
                     for i in range(len(probs)):
                         prob_char[probs[i]].add(thirds[i])
-                    alist = sorted(prob_char.keys(), reverse=True)
+                # greedy select next only with highesr prob
+                alist = sorted(prob_char.keys(), reverse=True)
                 idxs = prob_char[alist[0]]
+                # if there are more than more chars, randomly select one to break the tie
                 next_char = random.sample(idxs, 1)[0]
             sentence += next_char
             cnt += 1
@@ -637,12 +513,13 @@ def run(sonority):
     print("Given model in test file:", get_perplexity(model, "test", flag=0))
     # best_model, adjcent_map = read_model("outfile.txt")
     for i in range(5):
-        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, sonority_counts, 300, sonority)
-        # seq = readable_generated_seq(seq)
         print("=========================")
+        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, sonority_counts, 300, sonority)
+        seq = readable_generated_seq(seq)
         print("our model in generator v3:", seq)
+        print(len(seq))
         seq = generate_from_LM_rand_greedy(model, model_map, sonority_counts, 300, sonority)
-        # seq = readable_generated_seq(seq)
+        seq = readable_generated_seq(seq)
         print("given model in generator v3:", seq)
 
 
