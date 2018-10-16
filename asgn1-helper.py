@@ -7,6 +7,7 @@ import numpy as np
 from collections import defaultdict
 import itertools
 import string
+import matplotlib.pyplot as plt
 '''
 ============================================================
 variable declaration part
@@ -44,7 +45,7 @@ def read_and_store(infile, ratios):
     # dictionary to store relation graph of third char and previous two chars
     # key (string): previous two chars e.g "an"
     # value (set): all third char
-    adjacent_map = defaultdict(set)
+    # adjacent_map = defaultdict(set)
 
     uni_counts = defaultdict(int)
 
@@ -54,6 +55,8 @@ def read_and_store(infile, ratios):
     # test list
     test_list = []
 
+    train_list = []
+
     bins = np.cumsum(ratios)
 
     with open(infile) as f:
@@ -62,12 +65,13 @@ def read_and_store(infile, ratios):
             idx = np.digitize(random.random(), bins)
             # idx = 0 means the random variable is a training item
             if idx == 0:
+                train_list.append(line)
                 # include '##<start char>' and '<end char>##' -- included in preprocessing?
                 for j in range(len(line) - (2)):
                     trigram = line[j:j + 3]
                     pre = line[j:j + 2]
                     uni = line[j:j + 1]
-                    adjacent_map[pre].add(trigram[2])
+                    # adjacent_map[pre].add(trigram[2])
                     tri_counts[trigram] += 1
                     bi_counts[pre] += 1
                     uni_counts[uni] += 1
@@ -78,13 +82,8 @@ def read_and_store(infile, ratios):
             else:
                 test_list.append(line)
 
-    # new_map = defaultdict(list)
-    # for key in adjacent_map:
-    #     new_map[key] = list(adjacent_map[key])
-    #
-    # del adjacent_map
 
-    return adjacent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list
+    return train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list
 
 """
 Inserts missing trigrams and assigns all impossible combinations to <UNK>
@@ -111,16 +110,18 @@ def missing_items (tri_counts, bi_counts, uni_counts):
         combo = "".join(list(combo))
         all_combs_tri_list.append(combo)
 
-    sonority_constraint1 = ["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r", "t", "x"]
-    sonority_constraint2 = ["b", "d", "g", "p", "t", "k", "q", "x"] # Stops and affricates
-    impossible_comb = []
-    for char1 in sonority_constraint1:
-        for char2 in sonority_constraint2:
-            impossible_comb.extend(["#", char1, char2])
-            impossible_comb.extend([char2, char1, "#"])
+    #sonority_constraint1 = ["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r", "t", "x"]
+    #sonority_constraint2 = ["b", "d", "g", "p", "t", "k", "q", "x"] # Stops and affricates
+    #impossible_comb = []
+    #for char1 in sonority_constraint1:
+     #   for char2 in sonority_constraint2:
+      #      impossible_comb.append(tuple(["#", char1, char2]))
+       #     impossible_comb.append(tuple([" ", char1, char2]))
+        #    impossible_comb.append(tuple([char2, char1, "#"]))
+         #   impossible_comb.append(tuple([char2, char1, " "]))
 
-    non_letter_comb = itertools.product(all_nonletters, repeat=3)
-    impossible_comb.append(non_letter_comb)
+    #non_letter_comb = itertools.product(all_nonletters, repeat=3)
+    #impossible_comb.append(non_letter_comb)
 
     for i in all_combs_bi_list:
         if i not in bi_counts.keys():
@@ -130,64 +131,53 @@ def missing_items (tri_counts, bi_counts, uni_counts):
             uni_counts[j] = 0
     for k in all_combs_tri_list:
         if k not in tri_counts:
-            if k not in impossible_comb:
-                tri_counts[k] = 0
-            else:
-                tri_counts["<UNK>"] += 1
-                bi_counts["<UNK>"] += 1
-                uni_counts["<UNK>"] += 1
-
-    return tri_counts, bi_counts, uni_counts
+            #if k not in impossible_comb:
+            tri_counts[k] = 0
+            #else:
+             #   tri_counts["<UNK>"] += 1
+              #  bi_counts["<UNK>"] += 1
+               # uni_counts["<UNK>"] += 1
+    adj_map = defaultdict(set)
+    for i in tri_counts:
+        adj_map[i[:-1]].add(i[2])
+    return adj_map, tri_counts, bi_counts, uni_counts
 
 '''
-Task 1: removing unnecessary characters from each line
-@:param line: a line of string from input file
-@:return: a new line only with English alphabet, space, digits and dot character.
+Task 1: Treating each line as separate sequence, remove all letters that are not in the English alphabet, 
+all punctuation except '.', convert all digits to '0' and lowercase the whole line. 
+Extra steps taken not specified in task: 
+Remove excess white spaces and abbreviations.
+@:param line: A line of string from the input file.
+@:return: Modified line containing only lowercase characters found in the English alphabet, 
+white spaces, 0, dot character and line start and stop markers. 
 '''
 def preprocess_line(line):
     rule = re.compile("[^\s.A-Za-z0-9]")
-    # newline with only digit, alphabet, space and dot.
+    # new line with only digit, English alphabet, white space and dot
     line = rule.sub('', line)
-    # replace excess number of white spaces with one white space
+    # replace excess number of whitespaces with one white space
     line = re.sub('\s{2,}', ' ', line)
-    # Remove abbreviations enclosed by whitespace (substitue with whitespace)
+    # Remove abbreviations enclosed by whitespace (substitute with whitespace)
     line = re.sub('\s[A-Z]{2,}\s', ' ', line)
-    # Remove abbreviations that precede all punctuation (substitute with .)
+    # Remove abbreviations that precede all punctuation (substitute with dot)
     line = re.sub("\s([A-Z]{2,}).", '.', line)
-    line = re.sub("[1-9]", "0", line)  # replace 1-9 with 0
-    line = "##"+line.lower()[:-1]+"#"  # add character'##' to specify start and # to specify stop
+    line = re.sub("[0-9]{1,}", "0", line)  # replace 1-9 with 0
+    line = "##"+line.lower()[:-1]+"#"  # add '##' to specify start and '#' to specify stop of line
     return line
 
-'''
-Task 3: Estimate trigram probabilities by trigram count in training set. 
-Store probabilities into global dictionary 'train_model'
-The calculation formula is lec6, slide 13:
-
-P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
-where alpha is a tunable smoothing parameter, and v is the size of
-@:param tri_cnts: a dictionary containing all tri-gram counts
-@:param bi_cnts: a dictionary containing all bi-gram counts
-@:param alpha: smoothing parameter alpha
-@:return: language model
-'''
-def add_alpha_estimate(tri_cnts, bi_cnts, alpha):
-    model = defaultdict(float)
-    for k in tri_counts:
-        pre = bi_cnts[k[:-1]]
-        tri = tri_cnts[k]
-        model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
-    return model
-
 
 '''
-Normalize given model such that the sum of probability is 1. Add all missing items to dictionaries even if not possible.
+Normalize given model such that the sum of probability is 1. Add all missing items to dictionaries.
 @:param model: the distribution of model
 @:return: the normalized distribution
 '''
-def normalize_model(model):
-    total = sum(model.values())
-    for k in model:
-        model[k] = model[k] / total
+def normalize_model(model, adj_map):
+    for bi in adj_map:
+        total = 0
+        for t in adj_map[bi]:
+            total += model[bi+t]
+        for t in adj_map[bi]:
+            model[bi+t] /= total
     return model
 
 '''
@@ -208,12 +198,60 @@ Read model from file and store into a dictionary
 '''
 def read_model(infile):
     model = defaultdict(float)
+    adj_map = defaultdict(set)
     with open(infile) as f:
         for line in f:
             trigram, prob = line.split('\t')
             prob = float(prob.split('\n')[0])
             model[trigram] = prob
+            adj_map[trigram[:-1]].add(trigram[2])
+    return model, adj_map
+
+
+'''
+Task 3: Estimate trigram probabilities by trigram count in training set. 
+Store probabilities into global dictionary 'train_model'
+The calculation formula is lec6, slide 13:
+
+P(w3 | w1, w2) = ( Count(w1, w2, w3) + alpha ) / (Count(w1, w2) + alpha * v)  
+where alpha is a tunable smoothing parameter, and v is the size of
+@:param tri_cnts: a dictionary containing all tri-gram counts
+@:param bi_cnts: a dictionary containing all bi-gram counts
+@:param alpha: smoothing parameter alpha
+@:return: language model
+'''
+def add_alpha_estimate( tri_cnts, bi_cnts, alpha):
+    model = defaultdict(float)
+    for k in tri_counts:
+        pre = bi_cnts[k[:-1]]
+        tri = tri_cnts[k]
+        model[k] = (tri + alpha) / (pre + alpha * VOCABULARY_SIZE)
     return model
+
+'''
+Try different alpha and return the language model with least perplexity
+@:param tri_cnts: a dictionary containing all tri-gram counts
+@:param bi_cnts: a dictionary containing all bi-gram counts
+@:param validation_set: list of lines for validation
+@:return best_alpha, best_perplexity, best_model
+'''
+def adding_alpha_training_LM(adj_map, tri_counts, bi_counts, validation_set):
+
+    best_alpha = 0
+    best_perplexity = np.inf
+    best_model = -1
+    for a in np.arange(0.01, 1, 0.01):
+        training_model = add_alpha_estimate(tri_counts, bi_counts, alpha=a)
+        cur = get_perplexity(training_model, validation_set, flag=1)
+        print("alpha:",round(a,2),"perplexity:",cur)
+        if cur < best_perplexity:
+            best_alpha = a
+            best_perplexity = cur
+            best_model = training_model
+
+    print("======================best===========================")
+    print("alpha:", round(best_alpha, 2), "perplexity:", best_perplexity)
+    return best_alpha, best_perplexity, normalize_model(best_model, adj_map)
 
 
 """
@@ -234,7 +272,7 @@ def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
     for i in tri_counts.keys():
         last_two = i[1:]
         first_two = i[:-1]
-        uni_key = i[2]
+        uni_key = i[1]
         if bi_counts[first_two] > 0:
             p_tri = tri_counts[i]/bi_counts[first_two]
         else:
@@ -245,7 +283,6 @@ def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
             p_bi = 0
         p_uni = uni_counts[uni_key] / total
         val = lam1*p_tri+lam2*p_bi+lam3*p_uni
-
         model[i] = val
     return model
 
@@ -259,7 +296,7 @@ Find the best values for interpolation parameters lambda1, lambda2, lambda3.
 """
 
 
-def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list):
+def interpolation_training_LM(adj_map, tri_counts, bi_counts, uni_counts, validation_list):
 
     l1 = np.arange(0, 1, 0.1)
     l2 = np.arange(0, 1, 0.1)
@@ -283,7 +320,7 @@ def interpolation_training_LM(tri_counts, bi_counts, uni_counts, validation_list
     print("======================best===========================")
     print("lam1:", round(best_lam1, 2), "lam2:", round(best_lam2, 2), "lam3:", round(best_lam3, 2), "perplexity:",
           best_perplexity)
-    return best_lam1, best_lam2, best_lam3, best_perplexity, best_model
+    return best_lam1, best_lam2, best_lam3, best_perplexity, normalize_model(best_model, adjcent_map)
 
 
 '''
@@ -319,25 +356,13 @@ def generate_from_LM(lmodel, k):
             seq += i
         return seq
 
-# def generate_from_LM_v2(model, k):
-#     if k < 3:
-#         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
-#     else:
-#         list_seq = ["##"]
-#         while k > 0:
-#             for entry in model.keys():
-#                 if model.keys()[:1] == list_seq[-2:]:
-#                     context_dict[entry[2]] = model[entry]
-#                 outcome = np.array(list(context_dict.keys()))
-#                 prob = np.array(list(context_dict.values()))
-#                 next_char = np.random.choice(outcome, p = prob)
-#                 list_seq.append(next_char)
-#                 context_dict.clear()
-#             k = k-1
-#         sequence = ''.join(list_seq)
-#         return sequence
 
-def generate_from_LM_v2(model,map, k):
+'''
+select next char based on previous two,
+the higher prob of next char, the higher prob to be select as next,
+restart generator while meeting stop mark #.
+'''
+def generate_from_LM_random(model,map, k):
     if k < 3:
         raise Exception("Please specify a sequence of at least three characters.") # Not needed?
     else:
@@ -354,7 +379,7 @@ def generate_from_LM_v2(model,map, k):
             bins = np.cumsum(probs)
             # if bins is zero, it means no following char and might be a finished sentence.
             # We restart the generator again
-            if len(bins) == 0:
+            if len(bins) == 0 or prev2[-1] == ".":
                 seq += sentence
                 stop = sentence[-1]
                 sentence = "##"
@@ -366,6 +391,115 @@ def generate_from_LM_v2(model,map, k):
             next_char = thirds[idx[0]]
             sentence += next_char
             cnt += 1
+        seq += sentence
+        return seq
+
+'''
+select next char based on previous two,
+the higher prob of next char, the higher prob to be select as next,
+apply the idea of page rank.
+'''
+def generate_from_LM_pr(model,map, k, alpha):
+    if k < 3:
+        raise Exception("Please specify a sequence of at least three characters.") # Not needed?
+    else:
+        seq = ""
+        sentence = "##"
+        cnt = 0
+        while cnt < k:
+            prev2 = sentence[-2:]
+            thirds = list(map[prev2])
+            probs = [model[prev2+ch] for ch in thirds]
+            total = sum(probs)
+            alist = [a / total for a in probs]
+            probs = np.array(alist)
+            bins = np.cumsum(probs)
+            if random.random() < alpha and len(bins) > 0:
+                idx = np.digitize(np.random.random_sample(1), bins)[0]
+                next_char = thirds[idx]
+            else:
+                idx = random.randint(0, len(model)-1)
+                next_char = list(model.keys())[idx]
+            sentence += next_char
+            cnt += 1
+        seq += sentence
+        return seq
+
+'''
+select best next char based on previous two, randomly break tie
+restart generator while meeting stop mark #.
+'''
+def generate_from_LM_greedy(model,map, k):
+    if k < 3:
+        raise Exception("Please specify a sequence of at least three characters.") # Not needed?
+    else:
+        seq = ""
+        sentence = "##"
+        cnt = 0
+        while cnt < k:
+            prev2 = sentence[-2:]
+            thirds = list(map[prev2])
+            probs = [model[prev2+ch] for ch in thirds]
+            prob_char = dict(zip(probs, thirds))
+            probs = sorted(probs,reverse=True)
+            idxs = []
+            for i, p in enumerate(probs):
+                if p == probs[0]:
+                    idxs.append(i)
+                else:
+                    break
+            idx = random.sample(idxs, 1)[0]
+            next_char = prob_char[probs[idx]]
+
+            sentence += next_char
+            cnt += 1
+        seq += sentence
+        return seq
+
+
+'''
+apply both random and greedy method to generate sequence
+category for trigram: connector trigram and inner trigram
+e.g., in 'this is a book', 'thi' is inner and 's i' is connector.
+We randomly select connector based on LM distribution and generate inner(word) by greedy algorithm
+'''
+
+
+def generate_from_LM_rand_greedy(model, map, k):
+    if k < 3:
+        raise Exception("Please specify a sequence of at least three characters.")  # Not needed?
+    else:
+        seq = ""
+        sentence = "##"
+        cnt = 0
+        while cnt < k:
+            prev2 = sentence[-2:]
+            thirds = list(map[prev2])
+            probs = [model[prev2 + ch] for ch in thirds]
+            if len(thirds) == 0:
+                seq += sentence
+                sentence = "##"
+                continue
+            elif prev2 == "##" or prev2[-1] == " " or prev2[-1] == ".":
+                probs = np.array(probs)
+                bins = np.cumsum(probs)
+                idx = np.digitize(np.random.random_sample(1), bins)[0]
+                next_char = thirds[idx]
+                if next_char == ".":
+                    sentence += next_char
+                    seq += sentence
+                    sentence = "##"
+                    continue
+            else:
+                prob_char = defaultdict(set)
+                for i in range(len(probs)):
+                    prob_char[probs[i]].add(thirds[i])
+                alist = sorted(prob_char.keys(), reverse=True)
+                idxs = prob_char[alist[0]]
+                next_char = random.sample(idxs, 1)[0]
+            sentence += next_char
+            cnt += 1
+        seq += sentence
         return seq
 
 '''
@@ -395,17 +529,30 @@ def get_perplexity(model, testfile, flag):
         fo.close()
     else:
         lines = testfile
-    # calculate the log probability of each line and sum them up
+    # calculate the perplexity of each line and sum them up
+    pp = 0
     for line in lines:
         if flag == 0:
             line = preprocess_line(line)
-        cnt += 1
         logp = get_sequence_log_prob(model, line)
-        logsum += logp
-    # get cross entropy
-    cross_entropy = -logsum / cnt
-    # get perplexity of whole test paragraph
-    pp = np.exp2(cross_entropy)
+        # get cross entropy
+        cross_entropy = -logp / len(line)
+        # get perplexity of this line
+        pp += np.exp2(cross_entropy)
+
+    # calculate the perplexity of whole text
+    # logp = 0
+    # cnt = 0
+    # for line in lines:
+    #     if flag == 0:
+    #         line = preprocess_line(line)
+    #     logp += get_sequence_log_prob(model, line)
+    #     cnt += len(line)
+    # # get cross entropy
+    # cross_entropy = -logp / cnt
+    # # get perplexity of this line
+    # pp = np.exp2(cross_entropy)
+
     return pp
 
 '''
@@ -423,31 +570,6 @@ def get_sequence_log_prob(model, line):
             p += np.log2(prob)
     return p
 
-
-'''
-Try different alpha and return the language model with least perplexity
-@:param tri_cnts: a dictionary containing all tri-gram counts
-@:param bi_cnts: a dictionary containing all bi-gram counts
-@:param validation_set: list of lines for validation
-@:return best_alpha, best_perplexity, best_model
-'''
-def adding_alpha_training_LM(tri_counts, bi_counts, validation_set):
-
-    best_alpha = 0
-    best_perplexity = np.inf
-    best_model = -1
-    for a in np.arange(0.01, 1, 0.01):
-        training_model = add_alpha_estimate(tri_counts, bi_counts, alpha=a)
-        cur = get_perplexity(training_model, validation_set, flag=1)
-        print("alpha:",round(a,2),"perplexity:",cur)
-        if cur < best_perplexity:
-            best_alpha = a
-            best_perplexity = cur
-            best_model = training_model
-
-    print("======================best===========================")
-    print("alpha:", round(best_alpha, 2), "perplexity:", best_perplexity)
-    return best_alpha, best_perplexity, best_model
 
 
 
@@ -467,7 +589,59 @@ def show(infile):
         print(tri_count[0], ": ", str(tri_count[1]))
 
 
+'''
+Excerpt from our model displaying all ng* combinations and their associated probabilities
+@:param best_model: our language model
+@:return ng_dict: 
+'''
+def ng_excerpt (best_model):
 
+    ng_dict = defaultdict(float)
+    for key in best_model.keys():
+        if key[0] == "n":
+            if key[1] == "g":
+                ng_dict[key] = best_model[key]
+        continue
+    return ng_dict
+'''
+Sorting ng_dict
+'''
+
+def sorted_ng(ng_dict):
+    for key, value in sorted(ng_dict.items()):
+        print (key, round(value, 4))
+
+'''
+Plot ng* probabilities 
+'''
+def ng_bars (ng_dict):
+    x = []
+    y = []
+    dictlist = []
+    for key, value in ng_dict.items():
+        dictlist.append([value, key])
+        dictlist.sort(reverse=True)
+    for i in range(len(dictlist)):
+        x.append(dictlist[i][1])
+        y.append(dictlist[i][0])
+    plt.bar(x,y)
+
+
+'''
+Some example code that prints out the counts. For small input files
+the counts are easy to look at but for larger files you can redirect
+to an output file (see Lab 1).
+@:param param1: input file name 
+@:return void
+'''
+
+def show(infile):
+    print("Trigram counts in ", infile, ", sorted alphabetically:")
+    for trigram in sorted(tri_counts.keys()):
+        print(trigram, ": ", tri_counts[trigram])
+    print("Trigram counts in ", infile, ", sorted numerically:")
+    for tri_count in sorted(tri_counts.items(), key=lambda x: x[1], reverse=True):
+        print(tri_count[0], ": ", str(tri_count[1]))
 
 '''
 ============================================================
@@ -478,31 +652,69 @@ if __name__ == '__main__':
 
     # here we make sure the user provides a training filename when
     # calling this program, otherwise exit with a usage error.
-    if len(sys.argv) != 2:
-        print("Usage: ", sys.argv[0], "<training_file>")
-        sys.exit(1)
+    # if len(sys.argv) != 2:
+      #  print("Usage: ", sys.argv[0], "<training_file>")
+       # sys.exit(1)
 
-    infile = sys.argv[1]  # get input argument: the training file
+    #infile = sys.argv[1]  # get input argument: the training file
     random.seed(1) # fix random seed
-    # infile = "training.en"
-    adjcent_map, tri_counts, bi_counts, uni_counts, validation_list, test_list\
+    infile = "training.en"
+    train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list\
         = read_and_store(infile, [0.8, 0.1, 0.1])
-    full_tri_counts, full_bi_counts, full_uni_counts = missing_items(tri_counts, bi_counts, uni_counts)
-    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(tri_counts, bi_counts, validation_list)
-    best_lam1, best_lam2, best_lam3, best_perplexity, best_model = interpolation_training_LM(full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
-    print ("Our model:",get_perplexity(best_model, test_list, flag=1))
-    write_back_prob("outfile.txt", best_model)
-    model = read_model("model-br.en")
-    print("Given model:",get_perplexity(model, test_list, flag=1))
-    # #seq = generate_from_LM(best_model, 300)
-    for i in range(50):
-        seq = generate_from_LM_v2(best_model, adjcent_map, 300)
-        seq = readable_generated_seq(seq)
-        print(seq,"\n")
-    # tidied_seq = readable_generated_seq(seq)
-    # print(training_model)
-    # show(infile)
+    #adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts\
+     #   = missing_items(tri_counts, bi_counts, uni_counts)
+    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
+    #best_lam1, best_lam2, best_lam3, best_perplexity, best_model\
+     #   = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
 
+    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts \
+        = missing_items(tri_counts, bi_counts, uni_counts)
+    best_lam1, best_lam2, best_lam3, best_perplexity, best_model \
+        = interpolation_training_LM(adjcent_map, tri_counts, bi_counts, uni_counts, validation_list)
+
+    write_back_prob("outfile.txt", best_model)
+    ng_dict = ng_excerpt(best_model)
+    sorted_ng(ng_dict)
+    ng_plot = ng_bars(ng_dict)
+    model, model_map = read_model("model-br.en")
+    #ng_bars(model)
+    print("Our model in train set:", get_perplexity(best_model,train_list, flag=1))
+    print("Given model in train set:", get_perplexity(model, train_list, flag=1))
+    print("=======================================")
+    print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
+    print("Given model in test set:", get_perplexity(model, test_list, flag=1))
+    print("=======================================")
+    print("Our model in test file:", get_perplexity(best_model, "test", flag=0))
+    print("Given model in test file:", get_perplexity(model, "test", flag=0))
+    # #seq = generate_from_LM(best_model, 300)
+    print("=======================================")
+    # best_model, adjcent_map = read_model("outfile.txt")
+    for i in range(5):
+        # seq = generate_from_LM_random(best_model, adjcent_map, 100)
+        # seq = readable_generated_seq(seq)
+        # print("generator v1:", seq)
+        # seq = generate_from_LM_greedy(best_model, adjcent_map, 100)
+        # seq = readable_generated_seq(seq)
+        # print("generator v2:", seq)
+        # seq = generate_from_LM_random(best_model, adjcent_map, 150)
+        # seq = readable_generated_seq(seq)
+        # print("our model in generator v1:", seq)
+        # seq = generate_from_LM_random(model, model_map, 150)
+        # seq = readable_generated_seq(seq)
+        # print("given model in generator v1:", seq)
+        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, 150)
+        seq = readable_generated_seq(seq)
+        print("our model in generator v3:", seq)
+        # seq = generate_from_LM_rand_greedy(model, model_map, 150)
+        # seq = readable_generated_seq(seq)
+        # print("given model in generator v3:", seq)
+        # print("=========================")
+
+    # cnt = 0
+    # for i in adjcent_map['ng']:
+    #     cnt += best_model['ng'+i]
+    #     print('ng'+i, best_model['ng'+i])
+    # print(cnt)
 
 
 
