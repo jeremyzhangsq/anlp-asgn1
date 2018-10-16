@@ -517,8 +517,7 @@ Task 5: Given a language model and a test paragraph, calculate the perplexity.
 @:return: perplexity of testfile under model
 '''
 def get_perplexity(model, testfile, flag):
-    logsum = 0
-    cnt = 0
+
     if flag == 0:
         fo = open(testfile, "r")
         lines = fo.readlines()
@@ -535,19 +534,6 @@ def get_perplexity(model, testfile, flag):
         cross_entropy = -logp / len(line)
         # get perplexity of this line
         pp += np.exp2(cross_entropy)
-
-    # calculate the perplexity of whole text
-    # logp = 0
-    # cnt = 0
-    # for line in lines:
-    #     if flag == 0:
-    #         line = preprocess_line(line)
-    #     logp += get_sequence_log_prob(model, line)
-    #     cnt += len(line)
-    # # get cross entropy
-    # cross_entropy = -logp / cnt
-    # # get perplexity of this line
-    # pp = np.exp2(cross_entropy)
 
     return pp
 
@@ -634,18 +620,12 @@ if __name__ == '__main__':
         # seq = readable_generated_seq(seq)
         # print("given model in generator v1:", seq)
         seq = generate_from_LM_rand_greedy(best_model, adjcent_map, 150)
-        seq = readable_generated_seq(seq)
-        print("our model in generator v3:", seq)
-        # seq = generate_from_LM_rand_greedy(model, model_map, 150)
         # seq = readable_generated_seq(seq)
-        # print("given model in generator v3:", seq)
-        # print("=========================")
-
-    # cnt = 0
-    # for i in adjcent_map['ng']:
-    #     cnt += best_model['ng'+i]
-    #     print('ng'+i, best_model['ng'+i])
-    # print(cnt)
+        print("our model in generator v3:", seq)
+        seq = generate_from_LM_rand_greedy(model, model_map, 150)
+        # seq = readable_generated_seq(seq)
+        print("given model in generator v3:", seq)
+        print("=========================")
 
 
 
