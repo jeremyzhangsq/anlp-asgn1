@@ -14,6 +14,12 @@ variable declaration part
 ============================================================
 '''
 VOCABULARY_SIZE = 30
+SONORITY = {'++': ['a','e','i','o','u'],
+            '+': ['l','r'],
+            '-': ['f','v','z','s','h','y'],
+            '--': ['b','c','d','g','k','m','n','p','q','t','x','w','j']
+            }
+
 '''
 ============================================================
 function declaration part
@@ -28,7 +34,7 @@ also store trigram count into dictionary 'tri_counts'
 @:param ratios: a list contains split ratio [train_ratio, val_ratio, test_ratio,]  
 @:returns: tri_counts, bi_counts, validation_list, test_list
 '''
-def read_and_store(infile, ratios):
+def read_and_store(infile, ratios, sonority):
 
     if sum(ratios) != 1:
         raise Exception("The sum of split ratio should be 1")
@@ -49,6 +55,7 @@ def read_and_store(infile, ratios):
 
     uni_counts = defaultdict(int)
 
+    sonority_count = defaultdict(int)
     # validation list
     validation_list = []
 
@@ -65,6 +72,7 @@ def read_and_store(infile, ratios):
             # idx = 0 means the random variable is a training item
             if idx == 0:
                 # include '##<start char>' and '<end char>##' -- included in preprocessing?
+                prev_letter = '#'
                 for j in range(len(line) - (2)):
                     trigram = line[j:j + 3]
                     pre = line[j:j + 2]
@@ -73,6 +81,19 @@ def read_and_store(infile, ratios):
                     tri_counts[trigram] += 1
                     bi_counts[pre] += 1
                     uni_counts[uni] += 1
+                    # add sonority cnt here
+                    if sonority:
+                        sec = 'unk'
+                        fst = 'unk'
+                        for son in SONORITY:
+                            if line[j] in SONORITY[son]:
+                                sec = son
+                            if prev_letter in SONORITY[son]:
+                                fst = son
+                        key = (fst, sec)
+                        sonority_count[key] += 1
+                    prev_letter = line[j]
+
             # idx = 1 means the random variable is a validation item
             elif idx == 1:
                 validation_list.append(line)
@@ -80,8 +101,12 @@ def read_and_store(infile, ratios):
             else:
                 test_list.append(line)
 
+        if sonority:
+            total = sum(sonority_count.values())
+            for son in sonority_count:
+                sonority_count[son] /= total
 
-    return train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list
+    return sonority_count, train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list
 
 """
 Inserts missing trigrams and assigns all impossible combinations to <UNK>
@@ -318,7 +343,7 @@ def interpolation_training_LM(adj_map, tri_counts, bi_counts, uni_counts, valida
     print("======================best===========================")
     print("lam1:", round(best_lam1, 2), "lam2:", round(best_lam2, 2), "lam3:", round(best_lam3, 2), "perplexity:",
           best_perplexity)
-    return best_lam1, best_lam2, best_lam3, best_perplexity, normalize_model(best_model, adjcent_map)
+    return best_lam1, best_lam2, best_lam3, best_perplexity, normalize_model(best_model, adj_map)
 
 
 '''
@@ -463,7 +488,7 @@ We randomly select connector based on LM distribution and generate inner(word) b
 '''
 
 
-def generate_from_LM_rand_greedy(model, map, k):
+def generate_from_LM_rand_greedy(model, map, son_map, k, sonority):
     if k < 3:
         raise Exception("Please specify a sequence of at least three characters.")  # Not needed?
     else:
@@ -490,15 +515,35 @@ def generate_from_LM_rand_greedy(model, map, k):
                     continue
             else:
                 prob_char = defaultdict(set)
-                for i in range(len(probs)):
-                    prob_char[probs[i]].add(thirds[i])
-                alist = sorted(prob_char.keys(), reverse=True)
+                if sonority:
+                    for i in range(len(probs)):
+                        fst = 'unk'
+                        snd = 'unk'
+                        if str(prev2[-1]).isalpha():
+                            for key in SONORITY:
+                                if prev2[-1] in SONORITY[key]:
+                                    fst = key
+                                    break
+                        if str(thirds[i]).isalpha():
+                            for key in SONORITY:
+                                if thirds[i] in SONORITY[key]:
+                                    snd = key
+                                    break
+                        p = probs[i]*son_map[(fst,snd)]
+                        prob_char[p].add(thirds[i])
+                    alist = sorted(prob_char.keys(), reverse=True)
+                else:
+                    for i in range(len(probs)):
+                        prob_char[probs[i]].add(thirds[i])
+                    alist = sorted(prob_char.keys(), reverse=True)
                 idxs = prob_char[alist[0]]
                 next_char = random.sample(idxs, 1)[0]
             sentence += next_char
             cnt += 1
         seq += sentence
         return seq
+
+
 
 '''
 Make the generated sequence easier to read by removing non-character #
@@ -573,6 +618,34 @@ def show(infile):
     for tri_count in sorted(tri_counts.items(), key=lambda x: x[1], reverse=True):
         print(tri_count[0], ": ", str(tri_count[1]))
 
+def run(sonority):
+
+    sonority_counts, train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list \
+            = read_and_store(infile, [0.8, 0.1, 0.1], sonority)
+    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts \
+        = missing_items(tri_counts, bi_counts, uni_counts)
+    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
+    best_lam1, best_lam2, best_lam3, best_perplexity, best_model \
+        = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
+    write_back_prob("outfile.txt", best_model)
+    model, model_map = read_model("model-br.en")
+    print("=======================================")
+    print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
+    print("Given model in test set:", get_perplexity(model, test_list, flag=1))
+    print("=======================================")
+    print("Our model in test file:", get_perplexity(best_model, "test", flag=0))
+    print("Given model in test file:", get_perplexity(model, "test", flag=0))
+    # best_model, adjcent_map = read_model("outfile.txt")
+    for i in range(5):
+        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, sonority_counts, 300, sonority)
+        # seq = readable_generated_seq(seq)
+        print("=========================")
+        print("our model in generator v3:", seq)
+        seq = generate_from_LM_rand_greedy(model, model_map, sonority_counts, 300, sonority)
+        # seq = readable_generated_seq(seq)
+        print("given model in generator v3:", seq)
+
+
 '''
 ============================================================
 program running part
@@ -589,43 +662,9 @@ if __name__ == '__main__':
     infile = sys.argv[1]  # get input argument: the training file
     random.seed(1) # fix random seed
     # infile = "training.en"
-    train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list\
-        = read_and_store(infile, [0.8, 0.1, 0.1])
-    adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts\
-        = missing_items(tri_counts, bi_counts, uni_counts)
-    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
-    best_lam1, best_lam2, best_lam3, best_perplexity, best_model\
-        = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
-    write_back_prob("outfile.txt", best_model)
-    model, model_map = read_model("model-br.en")
-    print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
-    print("Given model in test set:", get_perplexity(model, test_list, flag=1))
-    print("=======================================")
-    print("Our model in test file:", get_perplexity(best_model, "test", flag=0))
-    print("Given model in test file:", get_perplexity(model, "test", flag=0))
-    # #seq = generate_from_LM(best_model, 300)
-    print("=======================================")
-    # best_model, adjcent_map = read_model("outfile.txt")
-    for i in range(5):
-        # seq = generate_from_LM_random(best_model, adjcent_map, 100)
-        # seq = readable_generated_seq(seq)
-        # print("generator v1:", seq)
-        # seq = generate_from_LM_greedy(best_model, adjcent_map, 100)
-        # seq = readable_generated_seq(seq)
-        # print("generator v2:", seq)
-        # seq = generate_from_LM_random(best_model, adjcent_map, 150)
-        # seq = readable_generated_seq(seq)
-        # print("our model in generator v1:", seq)
-        # seq = generate_from_LM_random(model, model_map, 150)
-        # seq = readable_generated_seq(seq)
-        # print("given model in generator v1:", seq)
-        seq = generate_from_LM_rand_greedy(best_model, adjcent_map, 150)
-        # seq = readable_generated_seq(seq)
-        print("our model in generator v3:", seq)
-        seq = generate_from_LM_rand_greedy(model, model_map, 150)
-        # seq = readable_generated_seq(seq)
-        print("given model in generator v3:", seq)
-        print("=========================")
+    run(sonority=False)
+    print("======================Optimization: Sonority===========================")
+    run(sonority=True)
 
 
 
