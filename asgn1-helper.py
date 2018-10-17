@@ -473,12 +473,11 @@ def get_sequence_log_prob(model, line):
 
 
 '''
-Excerpt from our model displaying all ng* combinations and their associated probabilities
+Task 3: Excerpt from our model displaying all ng* combinations and their associated probabilities
 @:param best_model: our language model
-@:return ng_dict: 
+@:return ng_dict:
 '''
 def ng_excerpt (best_model):
-
     ng_dict = defaultdict(float)
     for key in best_model.keys():
         if key[0] == "n":
@@ -486,18 +485,21 @@ def ng_excerpt (best_model):
                 ng_dict[key] = best_model[key]
         continue
     return ng_dict
+
 '''
-Sorting ng_dict
+Task 3: Print alphabetically sorted excerpt from model, here ng excerpt
+@:param ng_dict: dictionary of model probabilities, here excerpt for ng
 '''
 
-def sorted_ng(ng_dict):
+def print_sorted_ng(ng_dict):
     for key, value in sorted(ng_dict.items()):
-        print (key, round(value, 4))
+        print (key, round(value, 3))
 
 '''
-Plot ng* probabilities 
+Task 3: Plot log ng* probabilities 
+@:param ng_dict: dictionary of model probabilities, here excerpt for ng
 '''
-def ng_bars (ng_dict):
+def plot_ng (ng_dict, outname):
     x = []
     y = []
     dictlist = []
@@ -507,7 +509,16 @@ def ng_bars (ng_dict):
     for i in range(len(dictlist)):
         x.append(dictlist[i][1])
         y.append(dictlist[i][0])
-    plt.bar(x,y)
+    x_labels = []
+    for tri in x:
+        if tri[-1] == " ":
+            x_labels.append("_")
+        else:
+            x_labels.append(tri[-1])
+    plt.bar(x, y, width=0.5, tick_label=x_labels)
+    plt.yscale('log')
+    plt.savefig(outname)
+
 
 
 '''
@@ -536,10 +547,6 @@ def run(infile, sonority):
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model \
         = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
-    print("==============ng* prob======================")
-    ng_dict = ng_excerpt(best_model)
-    sorted_ng(ng_dict)
-    ng_plot = ng_bars(ng_dict)
     model, model_map = read_model("model-br.en")
     print("=======================================")
     print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
@@ -556,7 +563,7 @@ def run(infile, sonority):
         seq = generate_from_LM_rand_greedy(model, model_map, sonority_counts, 300, sonority)
         seq = readable_generated_seq(seq)
         print("given model in generator v3:", seq)
-
+    return best_model
 
 '''
 ============================================================
@@ -573,7 +580,11 @@ if __name__ == '__main__':
 
     infile = sys.argv[1]  # get input argument: the training file
     random.seed(1)  # fix random seed
-    run(infile=infile, sonority=False)
+    bmodel = run(infile=infile, sonority=False)
+    print("=============================ng* prob=================================")
+    ng_dict = ng_excerpt(bmodel)
+    print_sorted_ng(ng_dict)
+    plot_ng(ng_dict,"ng_prob.png")
     print("======================Optimization: Sonority===========================")
     run(infile=infile, sonority=True)
 
