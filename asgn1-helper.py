@@ -2,7 +2,6 @@
 import re
 import sys
 import random
-from math import log
 import numpy as np
 from collections import defaultdict
 import itertools
@@ -526,7 +525,6 @@ def run(infile, sonority):
             = read_and_store(infile, [0.8, 0.1, 0.1], sonority)
     adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts \
         = missing_items(tri_counts, bi_counts, uni_counts)
-    # best_alpha, best_perplexity, best_model = adding_alpha_training_LM(adjcent_map, tri_counts, bi_counts, validation_list)
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model \
         = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
