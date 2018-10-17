@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 variable declaration part
 ============================================================
 '''
-VOCABULARY_SIZE = 30
 SONORITY = {'++': ['a','e','i','o','u'],
             '+': ['l','r'],
             '-': ['f','v','z','s','h','y'],
