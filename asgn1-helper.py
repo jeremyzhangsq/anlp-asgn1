@@ -536,6 +536,10 @@ def run(infile, sonority):
     best_lam1, best_lam2, best_lam3, best_perplexity, best_model \
         = interpolation_training_LM(adjcent_map, full_tri_counts, full_bi_counts, full_uni_counts, validation_list)
     write_back_prob("outfile.txt", best_model)
+    print("==============ng* prob======================")
+    ng_dict = ng_excerpt(best_model)
+    sorted_ng(ng_dict)
+    ng_plot = ng_bars(ng_dict)
     model, model_map = read_model("model-br.en")
     print("=======================================")
     print("Our model in test set:", get_perplexity(best_model, test_list, flag=1))
