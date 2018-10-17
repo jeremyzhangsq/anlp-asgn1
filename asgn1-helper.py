@@ -520,23 +520,6 @@ def plot_ng (ng_dict, outname):
     plt.savefig(outname)
 
 
-
-'''
-Some example code that prints out the counts. For small input files
-the counts are easy to look at but for larger files you can redirect
-to an output file (see Lab 1).
-@:param param1: input file name 
-@:return void
-'''
-
-def show(infile):
-    print("Trigram counts in ", infile, ", sorted alphabetically:")
-    for trigram in sorted(tri_counts.keys()):
-        print(trigram, ": ", tri_counts[trigram])
-    print("Trigram counts in ", infile, ", sorted numerically:")
-    for tri_count in sorted(tri_counts.items(), key=lambda x: x[1], reverse=True):
-        print(tri_count[0], ": ", str(tri_count[1]))
-
 def run(infile, sonority):
 
     sonority_counts, train_list, tri_counts, bi_counts, uni_counts, validation_list, test_list \
