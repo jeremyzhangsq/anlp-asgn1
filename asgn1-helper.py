@@ -257,9 +257,9 @@ def interpolation_estimate(tri_counts, bi_counts, uni_counts, lam1, lam2, lam3):
 
 """
 Find the best values for interpolation parameters lambda1, lambda2, lambda3. 
-@:param normalized_tri: dictionary containing the normalized distribution of trigram counts
-@:param normalized_bi: dictionary containing the normalized distribution of bigram counts
-@:param normalized_uni: dictionary containing the normalized distribution of unigram counts
+@:param tri_counts: dictionary containing the distribution of trigram counts
+@:param bi_counts: dictionary containing the distribution of bigram counts
+@:param uni_counts: dictionary containing the distribution of unigram counts
 @:param validation_list: held-out set from training data
 @:return best_lam1, best_lam2, best_lam3, best_perplexity, best_model: the best estimates for lambda1, lambda2 and lambda 3, the associated model and its perplexity
 """
