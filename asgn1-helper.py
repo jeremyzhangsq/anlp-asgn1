@@ -224,9 +224,9 @@ def read_model(infile):
 
 """
 Task 3: Estimate trigram probabilities using interpolation.
-@:param normalized_tri: dictionary containing the normalized distribution of trigram counts
-@:param normalized_bi: dictionary containing the normalized distribution of bigram counts
-@:param normalized_uni: dictionary containing the normalized distribution of unigram counts
+@:param tri_counts: dictionary containing the distribution of trigram counts
+@:param bi_counts: dictionary containing the distribution of bigram counts
+@:param uni_counts: dictionary containing the distribution of unigram counts
 @:param lam1: interpolation parameter used with trigram probabilities
 @:param lam2: interpolation parameter used with bigram probabilities
 @:param lam3: interpolation parameter used with unigram probabilities
@@ -288,6 +288,7 @@ def interpolation_training_LM(adj_map, tri_counts, bi_counts, uni_counts, valida
     print("======================best===========================")
     print("lam1:", round(best_lam1, 2), "lam2:", round(best_lam2, 2), "lam3:", round(best_lam3, 2), "perplexity:",
           best_perplexity)
+    # before return LM, normalize all trigram based on previous two
     return best_lam1, best_lam2, best_lam3, best_perplexity, normalize_model(best_model, adj_map)
 
 
