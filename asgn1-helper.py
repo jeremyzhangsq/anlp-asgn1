@@ -472,6 +472,42 @@ def get_sequence_log_prob(model, line):
     return p
 
 
+'''
+Excerpt from our model displaying all ng* combinations and their associated probabilities
+@:param best_model: our language model
+@:return ng_dict: 
+'''
+def ng_excerpt (best_model):
+
+    ng_dict = defaultdict(float)
+    for key in best_model.keys():
+        if key[0] == "n":
+            if key[1] == "g":
+                ng_dict[key] = best_model[key]
+        continue
+    return ng_dict
+'''
+Sorting ng_dict
+'''
+
+def sorted_ng(ng_dict):
+    for key, value in sorted(ng_dict.items()):
+        print (key, round(value, 4))
+
+'''
+Plot ng* probabilities 
+'''
+def ng_bars (ng_dict):
+    x = []
+    y = []
+    dictlist = []
+    for key, value in ng_dict.items():
+        dictlist.append([value, key])
+        dictlist.sort(reverse=True)
+    for i in range(len(dictlist)):
+        x.append(dictlist[i][1])
+        y.append(dictlist[i][0])
+    plt.bar(x,y)
 
 
 '''
